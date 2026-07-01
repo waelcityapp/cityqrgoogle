@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Cairo", system-ui, sans-serif;
+  --font-mono: "Fira Code", monospace;
+
+  --color-brand-city: #8B0000;
+  --color-brand-qr: #D4AF37;
+  --color-brand-black: #000000;
+  --color-brand-gold-muted: #B89020;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+
+  /* Support RTL & LTR clean styling */
+  [dir="rtl"] {
+    font-family: "Cairo", "Plus Jakarta Sans", system-ui, sans-serif;
+  }
+
+  body {
+    background-color: #000000;
+    color: #f3f4f6;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+/* Light Mode Variables & Selective Overrides */
+html.light {
+  --color-zinc-950: #ffffff;
+  --color-zinc-900: #f1f5f9;
+  --color-zinc-800: #e2e8f0;
+  --color-zinc-700: #cbd5e1;
+  --color-zinc-600: #94a3b8;
+  --color-zinc-500: #64748b;
+  --color-zinc-400: #475569;
+  --color-zinc-300: #1e293b;
+  --color-zinc-200: #0f172a;
+  --color-zinc-100: #020617;
+}
+
+html.light body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* Translucent backgrounds in light mode */
+html.light .bg-black\/50,
+html.light .bg-black\/40,
+html.light .bg-black\/60,
+html.light .bg-zinc-950\/40,
+html.light .bg-zinc-950\/20 {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(12px);
+}
+
+/* Standard solid black backgrounds should be white in light mode, except buttons/links/badges */
+html.light .bg-black:not(button):not(a):not(span):not(.badge) {
+  background-color: #ffffff !important;
+}
+
+/* Headings color in light mode */
+html.light h1,
+html.light h2,
+html.light h3,
+html.light h4,
+html.light h5,
+html.light h6 {
+  color: #0f172a !important;
+}
+
+/* Text color overrides to ensure readability on white backgrounds */
+html.light .text-white:not(button):not(button *):not(a):not(a *):not(.bg-\[\#8B0000\] *):not(.bg-gradient-to-r *):not(.badge *):not(.bg-\[\#8B0000\]) {
+  color: #0f172a !important;
+}
+
+html.light .text-zinc-100:not(button *):not(a *):not(.bg-\[\#8B0000\] *):not(.bg-gradient-to-r *),
+html.light .text-zinc-200:not(button *):not(a *):not(.bg-\[\#8B0000\] *):not(.bg-gradient-to-r *),
+html.light .text-zinc-300:not(button *):not(a *):not(.bg-\[\#8B0000\] *):not(.bg-gradient-to-r *) {
+  color: #1e293b !important;
+}
+
+html.light .text-zinc-400:not(button *):not(a *):not(.bg-\[\#8B0000\] *):not(.bg-gradient-to-r *) {
+  color: #334155 !important;
+}
+
+html.light .text-zinc-500:not(button *):not(a *):not(.bg-\[\#8B0000\] *):not(.bg-gradient-to-r *) {
+  color: #475569 !important;
+}
+
+/* Active status elements inside lists/directories should keep high contrast */
+html.light .bg-[#8B0000] {
+  background-color: #8B0000 !important;
+}
+
+html.light .bg-[#D4AF37] {
+  background-color: #D4AF37 !important;
+}
+
+/* Custom transitions and scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8B0000;
+}
+
+.glow-gold {
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.15);
+}
+
+.glow-red {
+  box-shadow: 0 0 15px rgba(139, 0, 0, 0.2);
+}
