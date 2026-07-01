@@ -120,14 +120,14 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
 
           <p className="text-sm sm:text-base text-zinc-400 leading-relaxed max-w-xl font-medium">
             {language === 'ar' 
-              ? 'تطبيقك المثالي لتصفح قوائم الطعام (Menu)، تفاصيل وأسعار أصناف الملابس، خدمات صالونات التجميل، والعيادات الطبية داخل المنشأة فوراً عبر مسح كود الـ QR المتواجد أمامك.'
+              ? 'تطبيقك المثالي لتصفح قوائم الطعام (Menu)، تفاصيل وأسعار أصناف الملابس، خدمات صالونات التجميل، والعيادات الطبية الموثوقة والمعتمدة.'
               : 'Your ultimate app to browse menus, retail item prices & sizes, salon packages, and medical department services instantly by scanning the QR code in front of you.'}
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-2">
             <button 
               onClick={onOpenScanner}
-              className="flex items-center justify-center gap-2 rounded-xl bg-[#8B0000] hover:bg-[#8B0000]/90 px-8 py-4 text-sm font-bold text-white uppercase tracking-wider transition cursor-pointer shadow-lg shadow-[#8B0000]/20"
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#8B0000] hover:bg-[#8B0000]/90 px-8 py-4 text-sm font-bold text-white uppercase tracking-wider transition cursor-pointer"
             >
               <QrCode className="w-5 h-5" />
               <span>{language === 'ar' ? 'افتح الكاميرا لمسح كود QR' : 'Open Camera to Scan QR'}</span>
@@ -192,7 +192,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
         <div className="lg:col-span-2 space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h3 className="text-lg font-black text-white tracking-tight uppercase">
-              {language === 'ar' ? 'أهم العروض والخصومات الحالية' : 'Available Products & Services Directory'}
+              {language === 'ar' ? 'أهم العروض والخصومات الحالية' : 'Hot Deals & Top Discounts'}
               <span className="text-[#D4AF37] text-sm ml-2 font-mono font-bold">({filteredItems.length})</span>
             </h3>
 
@@ -385,7 +385,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                     {/* Simulated Quick Scan trigger */}
                     <button
                       onClick={() => onSelectScannedQR(selectedLandmark)}
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:from-amber-600 hover:to-[#D4AF37] text-xs font-bold text-black shadow-lg transition duration-200 cursor-pointer"
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:from-amber-600 hover:to-[#D4AF37] text-xs font-bold text-black transition cursor-pointer uppercase tracking-wider"
                     >
                       <Eye className="w-4 h-4" />
                       <span>{language === 'ar' ? 'محاكاة مسح الكود لمشاهدة التفاصيل' : 'Simulate Scan to View Details'}</span>
@@ -396,7 +396,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                         href={selectedLandmark.targetUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-zinc-800 bg-black hover:bg-zinc-900 text-xs font-bold text-zinc-300 transition cursor-pointer"
+                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-zinc-800 bg-black hover:bg-zinc-900 text-xs font-bold text-zinc-300 transition cursor-pointer uppercase tracking-wider"
                       >
                         <ExternalLink className="w-4 h-4 text-[#8B0000]" />
                         <span>{t.openLinkBtn}</span>
