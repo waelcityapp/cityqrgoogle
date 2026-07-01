@@ -159,7 +159,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
 
       {/* Categories Horizontal Filter Tab Bar */}
       <div className="space-y-4">
-        <h2 className="text-xl font-black tracking-tighter text-[#FFFFFF] flex items-center gap-2">
+        <h2 className="text-xl font-black tracking-tighter text-white flex items-center gap-2 bg-black px-3 py-2 rounded-lg w-fit">
           <Compass className="w-5 h-5 text-[#8B0000]" />
           <span>{language === 'ar' ? 'تصفح حسب فئة النشاط' : 'Explore by Business Category'}</span>
         </h2>
@@ -191,7 +191,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
         {/* Commercial Directory Card Feed */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <h3 className="text-lg font-black text-[#FFFFFF] tracking-tight uppercase">
+            <h3 className="text-lg font-black text-white tracking-tight uppercase bg-black px-3 py-2 rounded-lg w-fit">
               {language === 'ar' ? 'أهم العروض والخصومات الحالية' : 'Hot Deals & Top Discounts'}
               <span className="text-[#D4AF37] text-sm ml-2 font-mono font-bold">({filteredItems.length})</span>
             </h3>
