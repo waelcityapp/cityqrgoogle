@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Retrieve credentials safely from Vite environment variables
-const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL1 || '';
+const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY1 || '';
 
 // Check if credentials exist for real Supabase connection
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);

@@ -21,9 +21,13 @@ import {
   Scissors,
   HeartPulse,
   Grid,
-  Smartphone
+  Smartphone,
+  Globe,
+  DollarSign,
+  PhoneCall
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { convertCurrency } from '../services/international';
 
 interface VisitorLandingProps {
   onSwitchToMerchant: () => void;
@@ -38,13 +42,14 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
   onSelectScannedQR,
   onOpenInstallModal
 }) => {
-  const { qrcodes, language } = useApp();
+  const { qrcodes, language, userCountry } = useApp();
   const t = translations[language];
 
   // States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<LandmarkCategory | 'all'>('all');
   const [selectedLandmark, setSelectedLandmark] = useState<QRCodeItem | null>(null);
+  const [calcAmountUSD, setCalcAmountUSD] = useState<number>(100);
 
   // Filter items
   const filteredItems = qrcodes.filter((qr) => {
@@ -156,6 +161,87 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
           <QrCode className="w-64 h-64 rotate-12" />
         </div>
       </div>
+
+      {/* International Visitor & Destination Hub Card */}
+      {userCountry && (
+        <div className="rounded-3xl border border-[#D4AF37]/30 bg-gradient-to-r from-[#D4AF37]/10 via-white dark:via-zinc-900 to-[#8B0000]/10 p-6 md:p-8 shadow-xl">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            
+            {/* Country & Destination Intro */}
+            <div className="flex items-start sm:items-center gap-4 max-w-xl">
+              <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-3xl shrink-0 shadow-inner">
+                {userCountry.flag}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#8B0000] text-white text-[10px] font-black tracking-wider uppercase">
+                    {language === 'ar' ? 'الوجهة النشطة' : 'ACTIVE REGION'}
+                  </span>
+                  <span className="text-xs font-bold text-[#D4AF37]">
+                    {language === 'ar' ? 'دليل الزائر والسائح' : 'Traveler Guide'}
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white mt-1">
+                  {language === 'ar' ? userCountry.nameAr : userCountry.nameEn}
+                </h3>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-1 leading-relaxed">
+                  {language === 'ar' ? userCountry.touristTipAr : userCountry.touristTipEn}
+                </p>
+              </div>
+            </div>
+
+            {/* Currency Converter & Emergency Panel */}
+            <div className="w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-4 bg-white/80 dark:bg-zinc-950/80 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-md">
+              
+              {/* Currency Converter */}
+              <div className="flex flex-col justify-center border-b sm:border-b-0 sm:border-l sm:border-r border-zinc-200 dark:border-zinc-800 pb-3 sm:pb-0 sm:px-4">
+                <span className="text-[10px] font-bold text-zinc-400 flex items-center gap-1 mb-1">
+                  <DollarSign className="w-3 h-3 text-[#D4AF37]" />
+                  <span>{language === 'ar' ? 'محول العملات الفوري' : 'Quick Currency Conversion'}</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-400">$</span>
+                    <input
+                      type="number"
+                      value={calcAmountUSD}
+                      onChange={(e) => setCalcAmountUSD(Math.max(0, Number(e.target.value) || 0))}
+                      className="w-20 pl-6 pr-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-black text-center"
+                      placeholder="USD"
+                    />
+                  </div>
+                  <span className="text-xs font-bold text-zinc-400">=</span>
+                  <div className="px-3 py-1 rounded-lg bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-xs font-black text-[#8B0000] dark:text-[#D4AF37] min-w-[80px] text-center">
+                    {convertCurrency(calcAmountUSD, userCountry.rateVsUSD)} {userCountry.currencySymbol}
+                  </div>
+                </div>
+              </div>
+
+              {/* Emergency Numbers */}
+              <div className="flex flex-col justify-center sm:pl-2">
+                <span className="text-[10px] font-bold text-zinc-400 flex items-center gap-1 mb-1">
+                  <PhoneCall className="w-3 h-3 text-red-500" />
+                  <span>{language === 'ar' ? 'أرقام الطوارئ المحلية' : 'Local Emergency Numbers'}</span>
+                </span>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                    <span className="text-xs font-bold text-zinc-600 dark:text-zinc-300">{language === 'ar' ? 'الشرطة:' : 'Police:'}</span>
+                    <span className="text-sm font-black text-red-600 dark:text-red-400 font-mono">{userCountry.policeNumber}</span>
+                  </div>
+                  <div className="h-4 w-[1px] bg-zinc-200 dark:bg-zinc-800" />
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-zinc-600 dark:text-zinc-300">{language === 'ar' ? 'الإسعاف:' : 'Ambulance:'}</span>
+                    <span className="text-sm font-black text-red-600 dark:text-red-400 font-mono">{userCountry.ambulanceNumber}</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Categories Horizontal Filter Tab Bar */}
       <div className="space-y-4">

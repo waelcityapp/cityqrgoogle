@@ -39,6 +39,7 @@ import {
   Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { WORLD_COUNTRIES, CountryProfile } from './services/international';
 
 function CityQRAppContent() {
   const { 
@@ -46,6 +47,8 @@ function CityQRAppContent() {
     setLanguage, 
     theme, 
     setTheme, 
+    userCountry,
+    setUserCountry,
     emergencyConfig, 
     updateEmergencyConfig,
     isOnline,
@@ -56,6 +59,7 @@ function CityQRAppContent() {
 
   // Current active navigation tab (default is the visitor landing page!)
   const [activeTab, setActiveTab] = useState('landing');
+  const [isCountryModalOpen, setIsCountryModalOpen] = useState(false);
   
   // Scanned QR result state (global so scanner/dashboard can trigger/close it)
   const [scannedQR, setScannedQR] = useState<QRCodeItem | null>(null);
@@ -236,7 +240,7 @@ function CityQRAppContent() {
 
   // 3. Regular Application View
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-[#000000] text-zinc-900 dark:text-gray-100 font-sans flex flex-col justify-between transition-colors duration-300">
+    <div className="min-h-screen bg-zinc-50 dark:bg-[#000000] text-zinc-900 dark:text-gray-100 font-sans flex flex-col justify-between transition-colors duration-300 pb-16 sm:pb-20">
       
       {/* Dynamic PWA installation Banner */}
       <AnimatePresence>
@@ -295,8 +299,8 @@ function CityQRAppContent() {
 
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         
-        {/* Custom CityQR Header Bar */}
-        <header className="h-24 sm:h-20 border border-zinc-200 dark:border-[#D4AF37]/20 flex flex-col sm:flex-row items-center justify-between px-6 bg-white/85 dark:bg-black backdrop-blur-md rounded-2xl mb-4 gap-4 py-4 sm:py-0 shadow-sm dark:shadow-none">
+        {/* Custom CityQR Header Bar (Sticky on scroll as requested) */}
+        <header className="sticky top-2 z-40 h-24 sm:h-20 border border-zinc-200 dark:border-[#D4AF37]/20 flex flex-col sm:flex-row items-center justify-between px-6 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg rounded-2xl mb-4 gap-4 py-4 sm:py-0 shadow-md dark:shadow-xl dark:shadow-black/60 transition-all duration-200">
           
           {/* Logo Brand with Bold Typography theme elements */}
           <div className="flex items-center gap-3 sm:gap-4">
@@ -344,6 +348,17 @@ function CityQRAppContent() {
               <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
               <span>{isOnline ? t.onlineMode : t.offlineMode}</span>
             </div>
+
+            {/* International Country & Currency Selector Pill */}
+            <button
+              onClick={() => setIsCountryModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-[#8B0000]/10 dark:from-[#D4AF37]/15 dark:to-[#8B0000]/15 text-xs text-black dark:text-white hover:border-[#D4AF37] hover:scale-105 transition duration-150 cursor-pointer font-bold shadow-sm"
+              title={language === 'ar' ? 'تغيير الدولة والعملة وأرقام الطوارئ' : 'Change Country, Currency & Emergency Info'}
+            >
+              <span className="text-base leading-none">{userCountry?.flag || '🌍'}</span>
+              <span className="hidden md:inline text-[11px] font-black">{language === 'ar' ? userCountry?.nameAr : userCountry?.nameEn}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#D4AF37] text-black font-extrabold">{userCountry?.currencyCode || 'SAR'} ({userCountry?.currencySymbol || 'ر.س'})</span>
+            </button>
 
             {/* Language switch */}
             <button
@@ -448,7 +463,7 @@ function CityQRAppContent() {
       </div>
 
       {/* Custom Monospace Status Bar Footer */}
-      <footer className="h-10 bg-black border-t border-zinc-900 px-4 sm:px-8 flex items-center justify-between text-[10px] font-mono text-zinc-500 mt-12 select-none">
+      <footer className="h-10 bg-black border-t border-zinc-900 px-4 sm:px-8 flex items-center justify-between text-[10px] font-mono text-zinc-500 mt-12 mb-16 sm:mb-20 select-none">
         <div className="flex gap-4 sm:gap-6 overflow-x-auto whitespace-nowrap scrollbar-none">
           <span>PLATFORM: VITE/REACT18</span>
           <span>DB: INDEXEDDB</span>
@@ -462,6 +477,45 @@ function CityQRAppContent() {
           <span className="text-[#D4AF37] font-bold">CITYQR SECURE SHELL</span>
         </div>
       </footer>
+
+      {/* Bottom Navigation Bar (Fixed at bottom for native mobile app experience) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg border-t border-zinc-200 dark:border-zinc-800 shadow-2xl px-2 py-1.5 flex justify-around items-center">
+        {[
+          { id: 'landing', label: t.visitorPortal, icon: Compass },
+          { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
+          { id: 'scanner', label: t.scanner, icon: QrCode },
+          { id: 'generator', label: t.generator, icon: Sparkles },
+          { id: 'emergency', label: t.emergency, icon: ShieldAlert },
+        ].map((item) => {
+          const Icon = item.icon;
+          const isSelected = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveTab(item.id);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className={`flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition duration-200 cursor-pointer flex-1 max-w-[80px] ${
+                isSelected 
+                  ? 'text-[#D4AF37] font-extrabold' 
+                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 font-medium'
+              }`}
+            >
+              <div className={`p-1.5 rounded-xl transition-all ${
+                isSelected 
+                  ? 'bg-[#8B0000]/15 dark:bg-[#D4AF37]/15 scale-110 shadow-sm' 
+                  : 'hover:bg-zinc-100 dark:hover:bg-zinc-900'
+              }`}>
+                <Icon className={`w-5 h-5 ${isSelected ? 'text-[#8B0000] dark:text-[#D4AF37]' : 'text-zinc-500'}`} />
+              </div>
+              <span className="text-[10px] leading-none truncate max-w-full font-bold">
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
 
       {/* PWA Custom Instructions Modal */}
       <AnimatePresence>
@@ -787,6 +841,119 @@ function CityQRAppContent() {
                     <span>{language === 'ar' ? 'مشاركة عبر تطبيقات النظام المدمجة' : 'Share via System Dialog'}</span>
                   </button>
                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* International Country & Currency Selection Modal */}
+      <AnimatePresence>
+        {isCountryModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-3xl bg-white dark:bg-zinc-900 rounded-3xl border border-[#D4AF37]/30 shadow-2xl p-6 md:p-8 overflow-hidden max-h-[90vh] flex flex-col"
+            >
+              {/* Top Banner Accent */}
+              <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#8B0000] via-[#D4AF37] to-[#8B0000]" />
+
+              {/* Close Button */}
+              <button
+                onClick={() => setIsCountryModalOpen(false)}
+                className="absolute top-5 right-5 md:right-7 p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-black dark:hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-2xl">
+                  🌍
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-zinc-900 dark:text-white">
+                    {language === 'ar' ? 'اختيار الدولة والعملة وأرقام الطوارئ' : 'Select Country, Currency & Emergency Info'}
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {language === 'ar' ? 'تطبيق CityQR يتكيف تلقائياً مع عملة بلدك وأرقام الطوارئ المحلية أينما كنت حول العالم' : 'CityQR automatically adapts to your local currency and emergency numbers anywhere around the globe'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Current Selected Country Info Card */}
+              {userCountry && (
+                <div className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-[#D4AF37]/15 to-[#8B0000]/10 border border-[#D4AF37]/40 flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-4xl">{userCountry.flag}</span>
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#D4AF37]">
+                        {language === 'ar' ? 'الوجهة الحالية المختارة' : 'Currently Selected Destination'}
+                      </span>
+                      <h4 className="text-lg font-black text-zinc-900 dark:text-white">
+                        {language === 'ar' ? userCountry.nameAr : userCountry.nameEn} ({userCountry.code})
+                      </h4>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-300 max-w-md mt-1">
+                        {language === 'ar' ? userCountry.touristTipAr : userCountry.touristTipEn}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 text-center">
+                      <span className="block text-[10px] text-zinc-400">{language === 'ar' ? 'العملة الرسمية' : 'Official Currency'}</span>
+                      <span className="font-bold text-xs text-[#D4AF37]">{userCountry.currencyCode} ({userCountry.currencySymbol})</span>
+                    </div>
+                    <div className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 text-center">
+                      <span className="block text-[10px] text-zinc-400">{language === 'ar' ? 'شرطة / إسعاف' : 'Police / Ambulance'}</span>
+                      <span className="font-bold text-xs text-red-500 font-mono">{userCountry.policeNumber} / {userCountry.ambulanceNumber}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Grid of Countries */}
+              <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {WORLD_COUNTRIES.map((country) => {
+                  const isSelected = userCountry?.code === country.code;
+                  return (
+                    <button
+                      key={country.code}
+                      onClick={() => {
+                        setUserCountry(country);
+                        setIsCountryModalOpen(false);
+                      }}
+                      className={`flex items-center gap-3 p-3 rounded-2xl border text-start transition cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#8B0000] text-white border-[#D4AF37] shadow-lg scale-[1.02]'
+                          : 'bg-zinc-50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-700/60 text-zinc-800 dark:text-zinc-200'
+                      }`}
+                    >
+                      <span className="text-3xl">{country.flag}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-sm truncate">
+                            {language === 'ar' ? country.nameAr : country.nameEn}
+                          </span>
+                          {isSelected && <Check className="w-4 h-4 text-[#D4AF37] shrink-0" />}
+                        </div>
+                        <div className="flex items-center justify-between mt-1 text-[11px] opacity-80">
+                          <span>{country.currencyCode} ({country.currencySymbol})</span>
+                          <span className="font-mono text-red-400 dark:text-red-300">🆘 {country.policeNumber}</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">
+                <button
+                  onClick={() => setIsCountryModalOpen(false)}
+                  className="px-6 py-2 rounded-xl bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-white font-bold text-xs hover:bg-zinc-300 dark:hover:bg-zinc-700 transition cursor-pointer"
+                >
+                  {language === 'ar' ? 'إغلاق' : 'Close'}
+                </button>
               </div>
             </motion.div>
           </div>

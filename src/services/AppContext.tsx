@@ -8,12 +8,15 @@ import {
   incrementQRScanCountInDB,
   isSupabaseConfigured
 } from './supabase';
+import { CountryProfile, detectUserCountry, WORLD_COUNTRIES } from './international';
 
 interface AppContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  userCountry: CountryProfile;
+  setUserCountry: (country: CountryProfile) => void;
   emergencyConfig: EmergencyConfig;
   updateEmergencyConfig: (config: EmergencyConfig) => Promise<void>;
   qrcodes: QRCodeItem[];
@@ -92,6 +95,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 3. Online/Offline State
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  // 3.5 International User Country & Currency State
+  const [userCountry, setUserCountryState] = useState<CountryProfile>(() => {
+    try {
+      const savedCode = localStorage.getItem('cityqr_country_code');
+      if (savedCode) {
+        const found = WORLD_COUNTRIES.find(c => c.code === savedCode);
+        if (found) return found;
+      }
+    } catch (e) {
+      console.warn('Could not read saved country', e);
+    }
+    return detectUserCountry();
+  });
+
+  const setUserCountry = (country: CountryProfile) => {
+    setUserCountryState(country);
+    try {
+      localStorage.setItem('cityqr_country_code', country.code);
+    } catch (e) {
+      console.warn('Could not save country', e);
+    }
+  };
+
   useEffect(() => {
     const goOnline = () => setIsOnline(true);
     const goOffline = () => setIsOnline(false);
@@ -162,6 +188,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLanguage,
         theme,
         setTheme,
+        userCountry,
+        setUserCountry,
         emergencyConfig,
         updateEmergencyConfig,
         qrcodes,
