@@ -24,6 +24,7 @@ export interface EmergencyConfig {
 export interface UserProfile {
   id: string;
   email: string;
+  password?: string;
   role: 'user' | 'merchant' | 'admin' | 'operator' | 'citizen' | 'visitor';
   fullName?: string;
   fullNameAr?: string;

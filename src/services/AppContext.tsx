@@ -180,7 +180,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loginUser = async (email: string, password: string) => {
     const result = await signInWithSupabase(email, password);
-    if (result.user) {
+    if (result.user && !result.error) {
       setCurrentUser(result.user);
     }
     return { user: result.user, error: result.error };
@@ -188,7 +188,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const registerUser = async (email: string, password: string, fullName: string, role: 'user' | 'merchant') => {
     const result = await signUpWithSupabase(email, password, fullName, role);
-    if (result.user) {
+    if (result.user && !result.error) {
       setCurrentUser(result.user);
     }
     return { user: result.user, error: result.error };

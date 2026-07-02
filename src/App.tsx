@@ -38,8 +38,7 @@ import {
   Facebook,
   Twitter,
   Mail,
-  User,
-  KeyRound
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { WORLD_COUNTRIES, CountryProfile } from './services/international';
@@ -78,7 +77,26 @@ function CityQRAppContent() {
   // Social Sharing Modal states
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  const shareUrl = "https://cityqrgoogle.vercel.app/";
+  const shareUrl = typeof window !== 'undefined' ? window.location.origin : "https://cityqrgoogle.vercel.app/";
+
+  const getGeneralShareText = (includeUrl: boolean = true) => {
+    const imgUrl = typeof window !== 'undefined' ? `${window.location.origin}/app_icon-512.png` : '';
+    if (language === 'ar') {
+      let text = `🌟🏛️ [ تطبيق CityQR - دليل مدينتك التفاعلي والعروض الحصرية ] 🏛️🌟\n\n📢 اكتشف أقوى العروض والخصومات الذكية، المعالم السياحية، والخدمات المباشرة في مدينتك!\n\n🖼️ أيقونة وصورة التطبيق:\n${imgUrl}`;
+      if (includeUrl) {
+        text += `\n\n🔗 رابط الدخول لمنصة CityQR:\n${shareUrl}`;
+      }
+      text += `\n\n📲 تصفح التطبيق الآن واستفد من جميع الميزات والخصومات!`;
+      return text;
+    } else {
+      let text = `🌟🏛️ [ CityQR App - Your Smart City Guide & Offers ] 🏛️🌟\n\n📢 Discover top smart offers, exclusive discounts, landmarks, and live services in your city!\n\n🖼️ App Icon & Preview:\n${imgUrl}`;
+      if (includeUrl) {
+        text += `\n\n🔗 Access CityQR Platform:\n${shareUrl}`;
+      }
+      text += `\n\n📲 Explore the app now to access all smart city features!`;
+      return text;
+    }
+  };
 
   useEffect(() => {
     // Listen for PWA installation trigger
@@ -341,45 +359,6 @@ function CityQRAppContent() {
               <span>{language === 'ar' ? 'ثبت التطبيق' : 'Install App'}</span>
             </button>
 
-            {/* Account & Auth Buttons */}
-            {currentUser ? (
-              <button
-                onClick={() => setActiveTab('account')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition cursor-pointer font-bold shadow-sm shrink-0 whitespace-nowrap ${
-                  activeTab === 'account'
-                    ? 'border-[#D4AF37] bg-gradient-to-r from-[#8B0000]/20 to-[#D4AF37]/20 text-[#D4AF37]'
-                    : 'border-zinc-300 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:border-[#D4AF37]'
-                }`}
-                title={language === 'ar' ? 'حسابي وصلاحيات Supabase' : 'My Account & Supabase Role'}
-              >
-                <User className="w-4 h-4 text-[#D4AF37]" />
-                <span>
-                  {currentUser.role === 'merchant' ? (language === 'ar' ? 'تاجر' : 'Merchant') : (language === 'ar' ? 'عميل' : 'Customer')}
-                </span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
-                <button
-                  type="button"
-                  onClick={() => { setAuthInitialMode('signin'); setActiveTab('account'); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4AF37]/60 bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:from-amber-600 hover:to-[#D4AF37] text-black font-extrabold text-xs shadow-md transition cursor-pointer"
-                  title={language === 'ar' ? 'تسجيل الدخول لحسابك' : 'Sign In to your account'}
-                >
-                  <KeyRound className="w-3.5 h-3.5 text-zinc-950 shrink-0" />
-                  <span>{language === 'ar' ? 'تسجيل الدخول' : 'Sign In'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setAuthInitialMode('signup'); setActiveTab('account'); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#8B0000]/40 bg-[#8B0000]/10 hover:bg-[#8B0000]/20 text-white font-bold text-xs shadow-sm transition cursor-pointer"
-                  title={language === 'ar' ? 'إنشاء حساب جديد' : 'Create new account'}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                  <span>{language === 'ar' ? 'إنشاء حساب' : 'Sign Up'}</span>
-                </button>
-              </div>
-            )}
-
             {/* Connection pills */}
             <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border shrink-0 whitespace-nowrap ${
               isOnline 
@@ -439,11 +418,9 @@ function CityQRAppContent() {
         <nav className="hidden md:flex justify-start border-b border-zinc-200 dark:border-zinc-900 pb-px max-w-full overflow-x-auto gap-1 scrollbar-none">
           {[
             { id: 'landing', label: t.visitorPortal, icon: Compass },
-            { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي وصلاحياتي' : 'My Account') : (language === 'ar' ? 'دخول / حساب جديد' : 'Sign In / Up'), icon: User },
-            { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
             { id: 'scanner', label: t.scanner, icon: QrCode },
-            { id: 'generator', label: t.generator, icon: Sparkles },
             { id: 'emergency', label: t.emergency, icon: ShieldAlert },
+            { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي وصلاحياتي' : 'My Account') : (language === 'ar' ? 'دخول / حساب جديد' : 'Sign In / Up'), icon: User },
           ].map((item) => {
             const Icon = item.icon;
             const isSelected = activeTab === item.id;
@@ -495,7 +472,7 @@ function CityQRAppContent() {
               />
             )}
             {activeTab === 'generator' && (
-              <QRGenerator key="generator" />
+              <QRGenerator key="generator" onNavigate={setActiveTab} />
             )}
             {activeTab === 'scanner' && (
               <QRScanner 
@@ -532,11 +509,9 @@ function CityQRAppContent() {
       <nav className="flex md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg border-t border-zinc-200 dark:border-zinc-800 shadow-2xl px-2 py-1.5 justify-around items-center">
         {[
           { id: 'landing', label: t.visitorPortal, icon: Compass },
-          { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'Account') : (language === 'ar' ? 'دخول / تسجيل' : 'Sign In'), icon: User },
-          { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
           { id: 'scanner', label: t.scanner, icon: QrCode },
-          { id: 'generator', label: t.generator, icon: Sparkles },
           { id: 'emergency', label: t.emergency, icon: ShieldAlert },
+          { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'Account') : (language === 'ar' ? 'دخول / تسجيل' : 'Sign In'), icon: User },
         ].map((item) => {
           const Icon = item.icon;
           const isSelected = activeTab === item.id;
@@ -810,7 +785,7 @@ function CityQRAppContent() {
                     {/* WhatsApp */}
                     <a
                       href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                        (language === 'ar' ? 'شاهد أهم العروض والخصومات الذكية على منصة CityQR!' : 'Check out the active smart offers & discounts on CityQR Platform!') + ' ' + shareUrl
+                        getGeneralShareText(true)
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -823,7 +798,7 @@ function CityQRAppContent() {
                     {/* Telegram */}
                     <a
                       href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(
-                        language === 'ar' ? 'شاهد أهم العروض والخصومات الذكية على منصة CityQR!' : 'Check out the active smart offers & discounts on CityQR Platform!'
+                        getGeneralShareText(false)
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -847,7 +822,7 @@ function CityQRAppContent() {
                     {/* Twitter/X */}
                     <a
                       href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                        language === 'ar' ? 'شاهد أهم العروض والخصومات الذكية على منصة CityQR!' : 'Check out the active smart offers & discounts on CityQR Platform!'
+                        getGeneralShareText(false)
                       )}&url=${encodeURIComponent(shareUrl)}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -862,7 +837,7 @@ function CityQRAppContent() {
                       href={`mailto:?subject=${encodeURIComponent(
                         language === 'ar' ? 'منصة CityQR الذكية' : 'CityQR Smart Platform'
                       )}&body=${encodeURIComponent(
-                        (language === 'ar' ? 'مرحباً، تفضل بزيارة منصة CityQR الذكية لمشاهدة أهم العروض والخصومات الذكية المتوفرة بالمنشأة حالياً:' : 'Hi, please visit the CityQR smart platform to check the latest available smart offers and discounts:') + ' ' + shareUrl
+                        getGeneralShareText(true)
                       )}`}
                       className="flex items-center gap-2.5 p-3 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-600 dark:text-red-400 font-bold transition duration-150 col-span-2 justify-center"
                     >
@@ -879,7 +854,7 @@ function CityQRAppContent() {
                       try {
                         await navigator.share({
                           title: language === 'ar' ? 'منصة CityQR الذكية' : 'CityQR Smart Platform',
-                          text: language === 'ar' ? 'شاهد أهم العروض والخصومات الذكية على منصة CityQR!' : 'Check out the active smart offers & discounts on CityQR Platform!',
+                          text: getGeneralShareText(false),
                           url: shareUrl
                         });
                       } catch (err) {

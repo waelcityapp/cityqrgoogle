@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../services/AppContext';
 import { translations } from '../services/translations';
 import { QRCodeItem, LandmarkCategory } from '../types';
@@ -29,7 +29,15 @@ import {
   Star,
   Lock,
   User,
-  ThumbsUp
+  ThumbsUp,
+  Share2,
+  X,
+  Copy,
+  Check,
+  MessageCircle,
+  Send,
+  Facebook,
+  Twitter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { convertCurrency } from '../services/international';
@@ -57,6 +65,73 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<LandmarkCategory | 'all' | 'favorites'>('all');
   const [selectedLandmark, setSelectedLandmark] = useState<QRCodeItem | null>(null);
   const [calcAmountUSD, setCalcAmountUSD] = useState<number>(100);
+  const [sharingOffer, setSharingOffer] = useState<QRCodeItem | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+
+  // Auto-open offer if present in URL parameter (?offer=id)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && qrcodes.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const offerId = params.get('offer');
+      if (offerId && !selectedLandmark && !sharingOffer) {
+        const found = qrcodes.find(q => q.id === offerId);
+        if (found) {
+          setSelectedLandmark(found);
+        }
+      }
+    }
+  }, [qrcodes]);
+
+  // Dynamically update document title & Open Graph image/meta when viewing or sharing an offer
+  useEffect(() => {
+    const activeItem = sharingOffer || selectedLandmark;
+    if (typeof document !== 'undefined') {
+      if (activeItem) {
+        const titleText = language === 'ar' ? activeItem.titleAr : activeItem.titleEn;
+        const descText = language === 'ar' ? (activeItem.descriptionAr || (activeItem as any).descAr || '') : (activeItem.descriptionEn || (activeItem as any).descEn || '');
+        document.title = `${titleText} | CityQR`;
+        
+        const setMeta = (property: string, content: string) => {
+          let meta = document.querySelector(`meta[property="${property}"]`) || document.querySelector(`meta[name="${property}"]`);
+          if (meta) {
+            meta.setAttribute('content', content);
+          }
+        };
+        setMeta('og:title', `${titleText} | CityQR`);
+        setMeta('og:description', descText);
+        if (activeItem.imageUrl) {
+          setMeta('og:image', activeItem.imageUrl);
+          setMeta('og:image:secure_url', activeItem.imageUrl);
+          setMeta('twitter:image', activeItem.imageUrl);
+        }
+      } else {
+        document.title = 'CityQR - منصة الاستجابة السريعة للمدن الذكية والأماكن والعروض';
+      }
+    }
+  }, [sharingOffer, selectedLandmark, language]);
+
+  const getOfferShareText = (qr: QRCodeItem, includeUrl: boolean = true) => {
+    const title = language === 'ar' ? qr.titleAr : qr.titleEn;
+    const desc = language === 'ar' ? (qr.descriptionAr || (qr as any).descAr || '') : (qr.descriptionEn || (qr as any).descEn || '');
+    const offerUrl = typeof window !== 'undefined' ? `${window.location.origin}/?offer=${qr.id}` : '';
+    const imgUrl = qr.imageUrl || (typeof window !== 'undefined' ? `${window.location.origin}/app_icon-512.png` : '');
+
+    if (language === 'ar') {
+      let text = `🌟🏛️ [ تطبيق CityQR - دليل مدينتك التفاعلي والعروض الحصرية ] 🏛️🌟\n\n📢 إعلان / عرض مميز:\n✨ "${title}"\n\n📝 تفاصيل العرض:\n${desc}\n\n🖼️ صورة الإعلان المصغرة:\n${imgUrl}`;
+      if (includeUrl && offerUrl) {
+        text += `\n\n🔗 رابط الوصول المباشر للعرض على التطبيق:\n${offerUrl}`;
+      }
+      text += `\n\n📲 تصفح تطبيق CityQR لاكتشاف جميع الخصومات والخدمات الحصرية في مدينتك!`;
+      return text;
+    } else {
+      let text = `🌟🏛️ [ CityQR App - Your Smart City Guide & Offers ] 🏛️🌟\n\n📢 Special Offer / Ad:\n✨ "${title}"\n\n📝 Details:\n${desc}\n\n🖼️ Ad Image Thumbnail:\n${imgUrl}`;
+      if (includeUrl && offerUrl) {
+        text += `\n\n🔗 Direct Access Link on the App:\n${offerUrl}`;
+      }
+      text += `\n\n📲 Explore CityQR to discover all active discounts & services in your city!`;
+      return text;
+    }
+  };
 
   const currentSelected = selectedLandmark ? (qrcodes.find(q => q.id === selectedLandmark.id) || selectedLandmark) : null;
 
@@ -532,6 +607,25 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                         <span className="text-zinc-400 font-sans text-[10px] font-normal">({qr.ratingsCount || 0})</span>
                       </div>
                     </div>
+
+                    {/* Share Offer Button - Available to both Visitors & Registered Users */}
+                    <div 
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-3 pt-3 border-t border-zinc-900/80 flex items-center justify-between"
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSharingOffer(qr);
+                        }}
+                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-[#D4AF37]/15 via-[#D4AF37]/10 to-[#8B0000]/15 hover:from-[#D4AF37]/25 hover:to-[#8B0000]/25 border border-[#D4AF37]/40 text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer font-bold text-xs shadow-sm group/btn"
+                        title={language === 'ar' ? 'مشاركة هذا العرض مع الأصدقاء والعائلة عبر وسائل التواصل' : 'Share this offer with friends & family via social media'}
+                      >
+                        <Share2 className="w-4 h-4 text-[#D4AF37] group-hover/btn:scale-110 transition-transform shrink-0" />
+                        <span>{language === 'ar' ? 'مشاركة العرض' : 'Share Offer'}</span>
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -710,6 +804,16 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                   </div>
 
                   <div className="space-y-3 pt-6 border-t border-zinc-900 mt-auto">
+                    {/* Share Offer button in sidebar details */}
+                    <button
+                      type="button"
+                      onClick={() => setSharingOffer(currentSelected)}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37]/20 via-[#D4AF37]/10 to-[#8B0000]/20 hover:from-[#D4AF37]/30 hover:to-[#8B0000]/30 border border-[#D4AF37]/50 text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer font-bold text-xs shadow-sm"
+                    >
+                      <Share2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                      <span>{language === 'ar' ? 'مشاركة العرض مع الأصدقاء' : 'Share Offer with Friends'}</span>
+                    </button>
+
                     {/* Simulated Quick Scan trigger */}
                     <button
                       onClick={() => onSelectScannedQR(currentSelected)}
@@ -759,6 +863,189 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Share Offer Modal Overlay */}
+      {sharingOffer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-md overflow-hidden rounded-2xl border border-zinc-200 dark:border-[#D4AF37]/30 bg-white dark:bg-zinc-950 p-6 shadow-2xl text-zinc-950 dark:text-zinc-100 z-10 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
+            
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37]">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-black tracking-tight text-zinc-900 dark:text-[#D4AF37]">
+                  {language === 'ar' ? 'مشاركة العرض أو الخدمة' : 'Share Offer or Service'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSharingOffer(null)}
+                className="rounded-lg p-1.5 text-zinc-400 hover:text-zinc-800 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Offer Summary Preview Box */}
+            <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 flex items-center gap-3 mb-5">
+              {sharingOffer.imageUrl && (
+                <img 
+                  src={sharingOffer.imageUrl} 
+                  alt="" 
+                  className="w-14 h-14 rounded-lg object-cover shrink-0 border border-zinc-300 dark:border-zinc-700" 
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-xs text-zinc-900 dark:text-white truncate">
+                  {language === 'ar' ? sharingOffer.titleAr : sharingOffer.titleEn}
+                </h4>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-0.5 leading-relaxed">
+                  {language === 'ar' ? (sharingOffer.descriptionAr || (sharingOffer as any).descAr) : (sharingOffer.descriptionEn || (sharingOffer as any).descEn)}
+                </p>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="space-y-4 text-xs">
+              {/* Native Web Share Button (if available) */}
+              {typeof navigator !== 'undefined' && navigator.share && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.share({
+                        title: language === 'ar' ? sharingOffer.titleAr : sharingOffer.titleEn,
+                        text: getOfferShareText(sharingOffer, false),
+                        url: typeof window !== 'undefined' ? `${window.location.origin}/?offer=${sharingOffer.id}` : '',
+                      });
+                    } catch (e) {
+                      console.log('Share canceled or failed', e);
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-500 hover:from-amber-500 hover:to-[#D4AF37] text-black font-extrabold shadow-md transition duration-150 cursor-pointer"
+                >
+                  <Smartphone className="w-4 h-4 text-black animate-pulse shrink-0" />
+                  <span>{language === 'ar' ? '⚡ مشاركة فورية عبر تطبيقات هاتفك (واتساب، ماسنجر...)' : '⚡ Quick Share via Phone System Menu'}</span>
+                </button>
+              )}
+
+              {/* Direct copyable Link Field */}
+              <div className="space-y-1.5">
+                <span className="block font-bold text-zinc-700 dark:text-zinc-300">
+                  {language === 'ar' ? 'رابط المشاركة المباشر:' : 'Direct Share Link:'}
+                </span>
+                <div className="flex items-center gap-2 p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
+                  <input
+                    type="text"
+                    readOnly
+                    value={typeof window !== 'undefined' ? `${window.location.origin}/?offer=${sharingOffer.id}` : ''}
+                    className="flex-1 bg-transparent px-2 font-mono text-zinc-700 dark:text-zinc-300 select-all outline-none text-[11px]"
+                  />
+                  <button
+                    onClick={() => {
+                      const urlToCopy = typeof window !== 'undefined' ? `${window.location.origin}/?offer=${sharingOffer.id}` : '';
+                      navigator.clipboard.writeText(urlToCopy);
+                      setIsCopied(true);
+                      setTimeout(() => setIsCopied(false), 2000);
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#D4AF37] hover:bg-amber-600 text-black text-[11px] font-bold transition duration-150 cursor-pointer shadow shrink-0"
+                  >
+                    {isCopied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{language === 'ar' ? 'تم النسخ' : 'Copied'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>{language === 'ar' ? 'نسخ' : 'Copy'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Social media channels grid */}
+              <div className="space-y-2 pt-1">
+                <span className="block font-bold text-zinc-700 dark:text-zinc-300">
+                  {language === 'ar' ? 'أو المشاركة مباشرة عبر وسائل التواصل:' : 'Or share directly on social media:'}
+                </span>
+                
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* WhatsApp */}
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                      getOfferShareText(sharingOffer, true)
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 p-3 rounded-xl border border-green-500/20 bg-green-500/5 hover:bg-green-500/10 text-green-600 dark:text-green-400 font-bold transition duration-150"
+                  >
+                    <MessageCircle className="w-4 h-4 text-green-500 shrink-0" />
+                    <span>{language === 'ar' ? 'واتساب' : 'WhatsApp'}</span>
+                  </a>
+
+                  {/* Telegram */}
+                  <a
+                    href={`https://t.me/share/url?url=${encodeURIComponent(
+                      typeof window !== 'undefined' ? `${window.location.origin}/?offer=${sharingOffer.id}` : ''
+                    )}&text=${encodeURIComponent(getOfferShareText(sharingOffer, false))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 p-3 rounded-xl border border-sky-500/20 bg-sky-500/5 hover:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold transition duration-150"
+                  >
+                    <Send className="w-4 h-4 text-sky-500 shrink-0" />
+                    <span>{language === 'ar' ? 'تليجرام' : 'Telegram'}</span>
+                  </a>
+
+                  {/* Facebook */}
+                  <a
+                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+                      typeof window !== 'undefined' ? `${window.location.origin}/?offer=${sharingOffer.id}` : ''
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 p-3 rounded-xl border border-blue-600/20 bg-blue-600/5 hover:bg-blue-600/10 text-blue-600 dark:text-blue-400 font-bold transition duration-150"
+                  >
+                    <Facebook className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>{language === 'ar' ? 'فيسبوك' : 'Facebook'}</span>
+                  </a>
+
+                  {/* Twitter/X */}
+                  <a
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                      getOfferShareText(sharingOffer, false)
+                    )}&url=${encodeURIComponent(
+                      typeof window !== 'undefined' ? `${window.location.origin}/?offer=${sharingOffer.id}` : ''
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 p-3 rounded-xl border border-zinc-500/20 bg-zinc-500/5 hover:bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 font-bold transition duration-150"
+                  >
+                    <Twitter className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                    <span>{language === 'ar' ? 'إكس (تويتر)' : 'X / Twitter'}</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Close */}
+            <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">
+              <button
+                onClick={() => setSharingOffer(null)}
+                className="px-5 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-xs transition duration-150 cursor-pointer"
+              >
+                {language === 'ar' ? 'إغلاق' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };

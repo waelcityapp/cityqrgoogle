@@ -286,6 +286,22 @@ export async function signUpWithSupabase(
   fullName: string,
   role: 'user' | 'merchant'
 ): Promise<{ user: UserProfile; isLiveSupabase: boolean; error?: string }> {
+  ensureDemoProfilesInStorage();
+  try {
+    const existingProfiles: UserProfile[] = JSON.parse(
+      localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]'
+    );
+    if (existingProfiles.some(p => p.email.toLowerCase() === email.toLowerCase())) {
+      return {
+        user: null as any,
+        isLiveSupabase: false,
+        error: 'هذا البريد الإلكتروني مسجل بالفعل في قاعدة البيانات. يرجى تسجيل الدخول بدلاً من إنشاء حساب جديد / This email is already registered. Please login instead.'
+      };
+    }
+  } catch (e) {
+    console.warn('Error checking existing profiles:', e);
+  }
+
   const client = getSupabaseClient() as any;
   let isLive = false;
   let userId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -344,6 +360,7 @@ export async function signUpWithSupabase(
   const newProfile: UserProfile = {
     id: userId,
     email,
+    password,
     role: role,
     fullName: fullName,
     fullNameAr: fullName,
@@ -359,13 +376,47 @@ export async function signUpWithSupabase(
     const existingProfiles: UserProfile[] = JSON.parse(
       localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]'
     );
-    const updatedProfiles = [newProfile, ...existingProfiles.filter(p => p.email !== email)];
+    const updatedProfiles = [newProfile, ...existingProfiles.filter(p => p.email.toLowerCase() !== email.toLowerCase())];
     localStorage.setItem(LOCAL_STORAGE_KEY_PROFILES_DB, JSON.stringify(updatedProfiles));
   } catch (e) {
     console.warn('Failed to save user session locally:', e);
   }
 
   return { user: newProfile, isLiveSupabase: isLive, error: errorMsg };
+}
+
+function ensureDemoProfilesInStorage() {
+  try {
+    const existing: UserProfile[] = JSON.parse(
+      localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]'
+    );
+    let updated = [...existing];
+    if (!updated.some(p => p.email.toLowerCase() === 'merchant@cityqr.com')) {
+      updated.push({
+        id: 'usr_demo_merchant',
+        email: 'merchant@cityqr.com',
+        password: 'merchant123456',
+        role: 'merchant',
+        fullName: 'شركة هافور التجارية',
+        createdAt: new Date().toISOString()
+      });
+    }
+    if (!updated.some(p => p.email.toLowerCase() === 'citizen@cityqr.com')) {
+      updated.push({
+        id: 'usr_demo_citizen',
+        email: 'citizen@cityqr.com',
+        password: 'user123456',
+        role: 'user',
+        fullName: 'أحمد العتيبي',
+        createdAt: new Date().toISOString()
+      });
+    }
+    if (updated.length !== existing.length) {
+      localStorage.setItem(LOCAL_STORAGE_KEY_PROFILES_DB, JSON.stringify(updated));
+    }
+  } catch (e) {
+    console.warn('Could not seed demo profiles:', e);
+  }
 }
 
 export async function signInWithSupabase(
@@ -431,21 +482,30 @@ export async function signInWithSupabase(
 
   // Fallback to offline profiles db if live auth didn't return user
   if (!foundProfile) {
+    ensureDemoProfilesInStorage();
     const existingProfiles: UserProfile[] = JSON.parse(
       localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]'
     );
     const match = existingProfiles.find(p => p.email.toLowerCase() === email.toLowerCase());
+    
     if (match) {
+      // 1. Verify exact password if stored in offline profile
+      if (match.password && match.password !== password) {
+        return { user: null as any, isLiveSupabase: false, error: 'كلمة المرور غير صحيحة / Incorrect password' };
+      }
+      // 2. Verify demo merchant account password if email is demo merchant
+      if (email.toLowerCase() === 'merchant@cityqr.com' && password !== 'merchant123456') {
+        return { user: null as any, isLiveSupabase: false, error: 'كلمة المرور غير صحيحة لحساب التاجر التجريبي. الباسورد الصحيح هو: merchant123456' };
+      }
+      // 3. Verify demo citizen account password if email is demo citizen
+      if (email.toLowerCase() === 'citizen@cityqr.com' && password !== 'user123456') {
+        return { user: null as any, isLiveSupabase: false, error: 'كلمة المرور غير صحيحة لحساب العميل التجريبي. الباسورد الصحيح هو: user123456' };
+      }
       foundProfile = match;
+      errorMsg = undefined; // Clear any cloud error since user authenticated locally
     } else {
-      // Create instant trial profile if none exists so testing is smooth
-      foundProfile = {
-        id: `usr_test_${Date.now()}`,
-        email: email,
-        role: email.includes('merchant') || email.includes('admin') ? 'merchant' : 'user',
-        fullName: email.split('@')[0] || 'عميل تجريبي',
-        createdAt: new Date().toISOString()
-      };
+      // Reject login if account does not exist. Do not auto-create accounts on login!
+      return { user: null as any, isLiveSupabase: false, error: 'هذا البريد الإلكتروني غير مسجل في النظام. يرجى الضغط على "إنشاء حساب جديد" أولاً / Account not found. Please switch to "Create New Account" first.' };
     }
   }
 

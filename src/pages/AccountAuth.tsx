@@ -72,8 +72,8 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
     try {
       if (authMode === 'signup') {
         const result = await registerUser(email, password, fullName, selectedRole);
-        if (result.error && !result.user) {
-          setErrorMsg(result.error);
+        if (result.error || !result.user) {
+          setErrorMsg(result.error || (language === 'ar' ? 'فشل إنشاء الحساب' : 'Registration failed'));
         } else {
           setSuccessMsg(
             language === 'ar'
@@ -85,8 +85,8 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
         }
       } else {
         const result = await loginUser(email, password);
-        if (result.error && !result.user) {
-          setErrorMsg(result.error);
+        if (result.error || !result.user) {
+          setErrorMsg(result.error || (language === 'ar' ? 'فشل تسجيل الدخول' : 'Login failed'));
         } else {
           setSuccessMsg(
             language === 'ar'
@@ -322,22 +322,14 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                 </li>
               </ul>
 
-              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-zinc-800/80">
+              <div className="flex pt-4 border-t border-zinc-800/80">
                 <button
                   onClick={() => onNavigate?.('dashboard')}
                   disabled={currentUser.role !== 'merchant' && currentUser.role !== 'admin'}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:brightness-110 text-zinc-950 font-black text-xs shadow-lg transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:brightness-110 text-zinc-950 font-black text-xs shadow-lg transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <LayoutDashboard className="w-4 h-4" />
                   <span>{language === 'ar' ? 'دخول لوحة التحكم التجاري' : 'Open Merchant Dashboard'}</span>
-                </button>
-                <button
-                  onClick={() => onNavigate?.('generator')}
-                  disabled={currentUser.role !== 'merchant' && currentUser.role !== 'admin'}
-                  className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border border-zinc-700"
-                >
-                  <QrCode className="w-4 h-4 text-[#D4AF37]" />
-                  <span>{language === 'ar' ? 'مولد الرموز' : 'Generator'}</span>
                 </button>
               </div>
             </div>
@@ -377,20 +369,13 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                 </li>
               </ul>
 
-              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-zinc-800/80">
-                <button
-                  onClick={() => onNavigate?.('scanner')}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:brightness-110 text-white font-black text-xs shadow-lg transition cursor-pointer"
-                >
-                  <QrCode className="w-4 h-4" />
-                  <span>{language === 'ar' ? 'تشغيل قارئ الرموز المباشر' : 'Open QR Scanner'}</span>
-                </button>
+              <div className="flex pt-4 border-t border-zinc-800/80">
                 <button
                   onClick={() => onNavigate?.('landing')}
-                  className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs transition cursor-pointer border border-zinc-700"
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:brightness-110 text-white font-black text-xs shadow-lg transition cursor-pointer"
                 >
-                  <Compass className="w-4 h-4 text-emerald-400" />
-                  <span>{language === 'ar' ? 'بوابة العملاء' : 'Portal'}</span>
+                  <Compass className="w-4 h-4" />
+                  <span>{language === 'ar' ? 'الانتقال إلى بوابة الزوار والعروض' : 'Go to Visitor Portal & Offers'}</span>
                 </button>
               </div>
             </div>

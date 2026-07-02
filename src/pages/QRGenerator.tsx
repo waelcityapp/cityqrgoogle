@@ -14,7 +14,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-export const QRGenerator: React.FC = () => {
+interface QRGeneratorProps {
+  onNavigate?: (tabId: string) => void;
+}
+
+export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
   const { language, addQRCode } = useApp();
   const t = translations[language];
 
@@ -149,10 +153,21 @@ export const QRGenerator: React.FC = () => {
           {/* Top colored line indicator */}
           <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
           
-          <h2 className="text-xl font-black tracking-tighter text-[#D4AF37] mb-2 flex items-center gap-2 mt-2">
-            <Sparkles className="w-5 h-5 text-[#8B0000]" />
-            {t.addQRTitle}
-          </h2>
+          <div className="flex items-center justify-between mb-2 mt-2 gap-2">
+            <h2 className="text-xl font-black tracking-tighter text-[#D4AF37] flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-[#8B0000]" />
+              {t.addQRTitle}
+            </h2>
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate('dashboard')}
+                className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-[#D4AF37] border border-zinc-800 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0"
+              >
+                <span>{language === 'ar' ? '← العودة للوحة التحكم' : '← Back to Dashboard'}</span>
+              </button>
+            )}
+          </div>
           <p className="text-xs text-zinc-500 mb-6 font-medium">
             {language === 'ar' 
               ? 'الرجاء إدخال البيانات باللغتين العربية والإنجليزية لضمان عرضها بشكل صحيح لجميع مواطني وزوار المدينة.'
@@ -456,6 +471,15 @@ export const QRGenerator: React.FC = () => {
                     <Download className="w-4 h-4" />
                     {t.downloadQr}
                   </a>
+                  {onNavigate && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('dashboard')}
+                      className="flex items-center justify-center gap-2 w-full rounded-lg bg-[#8B0000] text-white py-2.5 text-xs font-bold hover:bg-[#8B0000]/90 transition cursor-pointer shadow-md mt-2"
+                    >
+                      <span>{language === 'ar' ? '← العودة إلى لوحة التحكم وسجل الرموز' : '← Back to Dashboard & QR Registry'}</span>
+                    </button>
+                  )}
                 </div>
               </motion.div>
             ) : (

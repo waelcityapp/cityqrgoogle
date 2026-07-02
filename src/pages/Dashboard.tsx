@@ -120,18 +120,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onSelectScanne
 
           <div className="flex flex-wrap gap-4 pt-2">
             <button 
-              onClick={() => onNavigate('scanner')}
-              className="flex items-center gap-2 rounded-lg bg-[#8B0000] hover:bg-[#8B0000]/90 px-6 py-2.5 text-xs font-bold text-white uppercase tracking-wider transition cursor-pointer"
-            >
-              <QrCode className="w-4 h-4" />
-              {t.scanner}
-            </button>
-            <button 
               onClick={() => onNavigate('generator')}
-              className="flex items-center gap-2 rounded-lg border border-[#D4AF37]/50 bg-[#000000] px-6 py-2.5 text-xs font-bold text-[#D4AF37] uppercase tracking-wider transition hover:bg-[#D4AF37]/10 cursor-pointer"
+              className="flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-600 px-8 py-3.5 text-xs md:text-sm font-black text-black uppercase tracking-wider transition hover:brightness-110 cursor-pointer shadow-lg shadow-[#D4AF37]/20"
             >
-              <SlidersHorizontal className="w-4 h-4" />
-              {t.generator}
+              <SlidersHorizontal className="w-4 h-4 text-black" />
+              <span>{language === 'ar' ? '✨ إنشاء وتوليد رمز QR جديد' : '✨ Create New QR Code (Generator)'}</span>
             </button>
           </div>
         </div>
