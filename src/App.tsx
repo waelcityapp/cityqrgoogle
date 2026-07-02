@@ -38,7 +38,8 @@ import {
   Facebook,
   Twitter,
   Mail,
-  User
+  User,
+  Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { WORLD_COUNTRIES, CountryProfile } from './services/international';
@@ -78,6 +79,38 @@ function CityQRAppContent() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const shareUrl = typeof window !== 'undefined' ? window.location.origin : "https://cityqrgoogle.vercel.app/";
+
+  // Notifications Bell states & 3 mock notifications
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const mockNotifications = [
+    {
+      id: 1,
+      titleAr: 'عرض خاص جديد! 💥',
+      titleEn: 'New Special Offer! 💥',
+      descAr: 'تم إضافة خصم 30% في مطعم قصر الرياض هذا الأسبوع.',
+      descEn: '30% discount added at Riyadh Palace Restaurant this week.',
+      timeAr: 'منذ 10 دقائق',
+      timeEn: '10 mins ago'
+    },
+    {
+      id: 2,
+      titleAr: 'تحديث معالم المدينة 🏛️',
+      titleEn: 'City Landmarks Updated 🏛️',
+      descAr: 'اكتشف الدليل التفاعلي الجديد لمعالم وجولات المدينة الذكية.',
+      descEn: 'Discover the new interactive guide for smart city tours and landmarks.',
+      timeAr: 'منذ ساعتين',
+      timeEn: '2 hours ago'
+    },
+    {
+      id: 3,
+      titleAr: 'تنبيه أمني وخدمي 🚨',
+      titleEn: 'Security & Service Alert 🚨',
+      descAr: 'نظام الاستجابة السريع والطوارئ يعمل بكفاءة 100% في جميع أنحاء المدينة.',
+      descEn: 'Emergency response system is running at 100% efficiency across the city.',
+      timeAr: 'أمس',
+      timeEn: 'Yesterday'
+    }
+  ];
 
   const getGeneralShareText = (includeUrl: boolean = true) => {
     const imgUrl = typeof window !== 'undefined' ? `${window.location.origin}/app_icon-512.png` : '';
@@ -335,15 +368,73 @@ function CityQRAppContent() {
               <span className="mt-1 px-2 py-0.5 bg-[#D4AF37]/10 text-[#D4AF37] text-[8.5px] font-extrabold rounded border border-[#D4AF37]/30 tracking-widest uppercase">V1.0.0-BETA</span>
             </div>
 
-            {/* Share App Button next to the app name */}
-            <button
-              onClick={() => setIsShareModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 hover:bg-[#D4AF37]/15 dark:hover:bg-[#D4AF37]/25 text-xs text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer font-bold shadow-sm shrink-0"
-              title={language === 'ar' ? 'مشاركة التطبيق عبر وسائل التواصل الاجتماعي' : 'Share app via social media'}
-            >
-              <Share2 className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span className="text-[11px] font-bold">{language === 'ar' ? 'مشاركة' : 'Share'}</span>
-            </button>
+            {/* Share App & Notifications Buttons next to the app name */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button
+                onClick={() => setIsShareModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 hover:bg-[#D4AF37]/15 dark:hover:bg-[#D4AF37]/25 text-xs text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer font-bold shadow-sm shrink-0"
+                title={language === 'ar' ? 'مشاركة التطبيق عبر وسائل التواصل الاجتماعي' : 'Share app via social media'}
+              >
+                <Share2 className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span className="text-[11px] font-bold">{language === 'ar' ? 'مشاركة' : 'Share'}</span>
+              </button>
+
+              {/* Notifications Bell Button */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                  className="flex items-center justify-center p-1.5 sm:px-2 sm:py-1.5 rounded-xl border border-[#8B0000]/40 bg-[#8B0000]/10 hover:bg-[#8B0000]/20 text-xs text-[#8B0000] dark:text-red-400 transition duration-200 cursor-pointer font-bold shadow-sm shrink-0 relative gap-1"
+                  title={language === 'ar' ? 'الإشعارات والتنبيهات' : 'Notifications'}
+                >
+                  <Bell className="w-4 h-4 text-[#8B0000] dark:text-red-400 animate-bounce" />
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 shadow">3</span>
+                </button>
+
+                {/* Notifications Dropdown Modal */}
+                <AnimatePresence>
+                  {isNotificationsOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        className="absolute left-0 sm:right-0 sm:left-auto mt-2 w-72 sm:w-80 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-4 z-50 text-start"
+                      >
+                        <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800 mb-3">
+                          <div className="flex items-center gap-2">
+                            <Bell className="w-4 h-4 text-[#8B0000] dark:text-[#D4AF37]" />
+                            <span className="font-extrabold text-xs text-zinc-900 dark:text-white">
+                              {language === 'ar' ? 'التنبيهات والإشعارات' : 'Notifications'}
+                            </span>
+                          </div>
+                          <span className="bg-[#8B0000]/10 text-[#8B0000] dark:text-red-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            {language === 'ar' ? '3 جديدة' : '3 New'}
+                          </span>
+                        </div>
+                        <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                          {mockNotifications.map((n) => (
+                            <div key={n.id} className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-700/50 hover:border-[#D4AF37]/50 transition">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">
+                                  {language === 'ar' ? n.titleAr : n.titleEn}
+                                </span>
+                                <span className="text-[9px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
+                                  {language === 'ar' ? n.timeAr : n.timeEn}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-zinc-600 dark:text-zinc-300 leading-snug">
+                                {language === 'ar' ? n.descAr : n.descEn}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
           </div>
 
           {/* Controls Panel - Horizontally scrollable left & right */}
@@ -511,7 +602,7 @@ function CityQRAppContent() {
           { id: 'landing', label: t.visitorPortal, icon: Compass },
           { id: 'scanner', label: t.scanner, icon: QrCode },
           { id: 'emergency', label: t.emergency, icon: ShieldAlert },
-          { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'Account') : (language === 'ar' ? 'دخول / تسجيل' : 'Sign In'), icon: User },
+          { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'Account') : (language === 'ar' ? 'دخول / تسجيل' : 'Sign In'), icon: User, hasNotification: true },
         ].map((item) => {
           const Icon = item.icon;
           const isSelected = activeTab === item.id;
@@ -522,18 +613,23 @@ function CityQRAppContent() {
                 setActiveTab(item.id);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className={`flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition duration-200 cursor-pointer flex-1 max-w-[80px] ${
+              className={`flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition duration-200 cursor-pointer flex-1 max-w-[80px] relative ${
                 isSelected 
                   ? 'text-[#D4AF37] font-extrabold' 
                   : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 font-medium'
               }`}
             >
-              <div className={`p-1.5 rounded-xl transition-all ${
+              <div className={`p-1.5 rounded-xl transition-all relative ${
                 isSelected 
                   ? 'bg-[#8B0000]/15 dark:bg-[#D4AF37]/15 scale-110 shadow-sm' 
                   : 'hover:bg-zinc-100 dark:hover:bg-zinc-900'
               }`}>
                 <Icon className={`w-5 h-5 ${isSelected ? 'text-[#8B0000] dark:text-[#D4AF37]' : 'text-zinc-500'}`} />
+                {item.hasNotification && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 animate-pulse shadow">
+                    1
+                  </span>
+                )}
               </div>
               <span className="text-[10px] leading-none truncate max-w-full font-bold">
                 {item.label}
