@@ -113,8 +113,8 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
   const getOfferShareText = (qr: QRCodeItem, includeUrl: boolean = true) => {
     const title = language === 'ar' ? qr.titleAr : qr.titleEn;
     const desc = language === 'ar' ? (qr.descriptionAr || (qr as any).descAr || '') : (qr.descriptionEn || (qr as any).descEn || '');
-    const offerUrl = typeof window !== 'undefined' ? `${window.location.origin}/?offer=${qr.id}` : '';
-    const imgUrl = qr.imageUrl || (typeof window !== 'undefined' ? `${window.location.origin}/app_icon-512.png` : '');
+    const offerUrl = `https://cityqrgoogle.vercel.app/?offer=${qr.id}`;
+    const imgUrl = qr.imageUrl || "https://cityqrgoogle.vercel.app/app_icon-512.png?v=4";
 
     if (language === 'ar') {
       let text = `🌟🏛️ [ تطبيق CityQR - دليل مدينتك التفاعلي والعروض الحصرية ] 🏛️🌟\n\n📢 إعلان / عرض مميز:\n✨ "${title}"\n\n📝 تفاصيل العرض:\n${desc}\n\n🖼️ صورة الإعلان المصغرة:\n${imgUrl}`;
@@ -921,7 +921,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                       await navigator.share({
                         title: language === 'ar' ? sharingOffer.titleAr : sharingOffer.titleEn,
                         text: getOfferShareText(sharingOffer, false),
-                        url: typeof window !== 'undefined' ? `${window.location.origin}/?offer=${sharingOffer.id}` : '',
+                        url: `https://cityqrgoogle.vercel.app/?offer=${sharingOffer.id}`,
                       });
                     } catch (e) {
                       console.log('Share canceled or failed', e);
@@ -943,12 +943,12 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                   <input
                     type="text"
                     readOnly
-                    value={typeof window !== 'undefined' ? `${window.location.origin}/?offer=${sharingOffer.id}` : ''}
+                    value={`https://cityqrgoogle.vercel.app/?offer=${sharingOffer.id}`}
                     className="flex-1 bg-transparent px-2 font-mono text-zinc-700 dark:text-zinc-300 select-all outline-none text-[11px]"
                   />
                   <button
                     onClick={() => {
-                      const urlToCopy = typeof window !== 'undefined' ? `${window.location.origin}/?offer=${sharingOffer.id}` : '';
+                      const urlToCopy = `https://cityqrgoogle.vercel.app/?offer=${sharingOffer.id}`;
                       navigator.clipboard.writeText(urlToCopy);
                       setIsCopied(true);
                       setTimeout(() => setIsCopied(false), 2000);
@@ -993,7 +993,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                   {/* Telegram */}
                   <a
                     href={`https://t.me/share/url?url=${encodeURIComponent(
-                      typeof window !== 'undefined' ? `${window.location.origin}/?offer=${sharingOffer.id}` : ''
+                      `https://cityqrgoogle.vercel.app/?offer=${sharingOffer.id}`
                     )}&text=${encodeURIComponent(getOfferShareText(sharingOffer, false))}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -1006,7 +1006,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                   {/* Facebook */}
                   <a
                     href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-                      typeof window !== 'undefined' ? `${window.location.origin}/?offer=${sharingOffer.id}` : ''
+                      `https://cityqrgoogle.vercel.app/?offer=${sharingOffer.id}`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -1021,7 +1021,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                     href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
                       getOfferShareText(sharingOffer, false)
                     )}&url=${encodeURIComponent(
-                      typeof window !== 'undefined' ? `${window.location.origin}/?offer=${sharingOffer.id}` : ''
+                      `https://cityqrgoogle.vercel.app/?offer=${sharingOffer.id}`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"

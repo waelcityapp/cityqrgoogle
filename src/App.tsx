@@ -78,7 +78,7 @@ function CityQRAppContent() {
   // Social Sharing Modal states
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  const shareUrl = typeof window !== 'undefined' ? window.location.origin : "https://cityqrgoogle.vercel.app/";
+  const shareUrl = "https://cityqrgoogle.vercel.app/";
 
   // Notifications Bell states & 3 mock notifications
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -113,7 +113,7 @@ function CityQRAppContent() {
   ];
 
   const getGeneralShareText = (includeUrl: boolean = true) => {
-    const imgUrl = typeof window !== 'undefined' ? `${window.location.origin}/app_icon-512.png` : '';
+    const imgUrl = "https://cityqrgoogle.vercel.app/app_icon-512.png?v=4";
     if (language === 'ar') {
       let text = `🌟🏛️ [ تطبيق CityQR - دليل مدينتك التفاعلي والعروض الحصرية ] 🏛️🌟\n\n📢 اكتشف أقوى العروض والخصومات الذكية، المعالم السياحية، والخدمات المباشرة في مدينتك!\n\n🖼️ أيقونة وصورة التطبيق:\n${imgUrl}`;
       if (includeUrl) {
@@ -511,7 +511,7 @@ function CityQRAppContent() {
             { id: 'landing', label: t.visitorPortal, icon: Compass },
             { id: 'scanner', label: t.scanner, icon: QrCode },
             { id: 'emergency', label: t.emergency, icon: ShieldAlert },
-            { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي وصلاحياتي' : 'My Account') : (language === 'ar' ? 'دخول / حساب جديد' : 'Sign In / Up'), icon: User },
+            { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي وصلاحياتي' : 'My Account') : (language === 'ar' ? 'دخول / حساب جديد' : 'Sign In / Up'), icon: User, hasNotification: true },
           ].map((item) => {
             const Icon = item.icon;
             const isSelected = activeTab === item.id;
@@ -519,13 +519,20 @@ function CityQRAppContent() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition cursor-pointer shrink-0 ${
+                className={`flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition cursor-pointer shrink-0 relative ${
                   isSelected 
                     ? 'border-[#D4AF37] text-[#D4AF37] bg-zinc-100/60 dark:bg-zinc-950/40 rounded-t-lg' 
                     : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-800'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isSelected ? 'text-[#8B0000]' : 'text-zinc-500'}`} />
+                <div className="relative flex items-center">
+                  <Icon className={`w-4 h-4 ${isSelected ? 'text-[#8B0000]' : 'text-zinc-500'}`} />
+                  {item.hasNotification && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 animate-pulse shadow">
+                      1
+                    </span>
+                  )}
+                </div>
                 <span>{item.label}</span>
               </button>
             );
