@@ -24,7 +24,12 @@ import {
   Smartphone,
   Globe,
   DollarSign,
-  PhoneCall
+  PhoneCall,
+  Heart,
+  Star,
+  Lock,
+  User,
+  ThumbsUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { convertCurrency } from '../services/international';
@@ -34,22 +39,26 @@ interface VisitorLandingProps {
   onOpenScanner: () => void;
   onSelectScannedQR: (qr: QRCodeItem) => void;
   onOpenInstallModal: () => void;
+  onNavigateToAccount?: () => void;
 }
 
 export const VisitorLanding: React.FC<VisitorLandingProps> = ({ 
   onSwitchToMerchant, 
   onOpenScanner,
   onSelectScannedQR,
-  onOpenInstallModal
+  onOpenInstallModal,
+  onNavigateToAccount
 }) => {
-  const { qrcodes, language, userCountry } = useApp();
+  const { qrcodes, language, userCountry, currentUser, toggleLike, toggleFavorite, submitRating } = useApp();
   const t = translations[language];
 
   // States
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<LandmarkCategory | 'all'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<LandmarkCategory | 'all' | 'favorites'>('all');
   const [selectedLandmark, setSelectedLandmark] = useState<QRCodeItem | null>(null);
   const [calcAmountUSD, setCalcAmountUSD] = useState<number>(100);
+
+  const currentSelected = selectedLandmark ? (qrcodes.find(q => q.id === selectedLandmark.id) || selectedLandmark) : null;
 
   // Filter items
   const filteredItems = qrcodes.filter((qr) => {
@@ -59,13 +68,19 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
       (qr.addressAr && qr.addressAr.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (qr.addressEn && qr.addressEn.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    const matchesCategory = selectedCategory === 'all' || qr.category === selectedCategory;
+    const matchesCategory = 
+      selectedCategory === 'all' 
+        ? true 
+        : selectedCategory === 'favorites' 
+        ? (qr.favoritedBy || []).includes(currentUser?.id || '') 
+        : qr.category === selectedCategory;
 
     return matchesSearch && matchesCategory;
   });
 
-  const categoriesList: { id: LandmarkCategory | 'all'; labelAr: string; labelEn: string; icon: any; color: string }[] = [
+  const categoriesList: { id: LandmarkCategory | 'all' | 'favorites'; labelAr: string; labelEn: string; icon: any; color: string }[] = [
     { id: 'all', labelAr: 'الكل', labelEn: 'All', icon: Layers, color: 'text-[#D4AF37]' },
+    ...(currentUser ? [{ id: 'favorites' as const, labelAr: 'مفضلاتي ♥', labelEn: 'My Favorites ♥', icon: Heart, color: 'text-rose-500' }] : []),
     { id: 'monument', labelAr: 'مطاعم ومقاهي', labelEn: 'Restaurants & Cafés', icon: Utensils, color: 'text-amber-500' },
     { id: 'transport', labelAr: 'مراكز لياقة وجيم', labelEn: 'Gyms & Fitness', icon: Activity, color: 'text-green-500' },
     { id: 'facility', labelAr: 'مختبرات وتحاليل', labelEn: 'Medical Labs', icon: HeartPulse, color: 'text-cyan-500' },
@@ -91,23 +106,40 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
       exit={{ opacity: 0 }}
       className="space-y-8"
     >
-      {/* Dynamic Hero Section with Top Red/Gold Ribbon */}
-      <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-12">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#8B0000] via-[#D4AF37] to-[#8B0000]"></div>
+      {/* Dynamic Hero Section with Top Red/Gold Ribbon and Shopping Background */}
+      <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-12 shadow-2xl min-h-[360px] flex flex-col justify-center">
+        {/* Beautiful Shopping Woman Background Image - Always Visible */}
+        <div className="absolute inset-0 z-0 overflow-hidden bg-gradient-to-r from-zinc-950 to-zinc-900">
+          <img 
+            src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1600&q=80" 
+            alt="Young woman shopping" 
+            className="w-full h-full object-cover object-top opacity-55 sm:opacity-65 scale-105 transition-all duration-700"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              // Fallback shopping image if primary url has any network hiccup
+              (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=1600&q=80';
+            }}
+          />
+          {/* Subtle Directional Gradients that keep text super readable while leaving the shopper woman clearly visible on top/right */}
+          <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/85 to-zinc-950/20 sm:via-zinc-950/75 sm:to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent sm:hidden" />
+        </div>
+
+        <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line z-20"></div>
         
         {/* Glowing Ambient Lights */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-[#8B0000]/5 rounded-full blur-3xl -z-10" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#D4AF37]/5 rounded-full blur-3xl -z-10" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#8B0000]/15 rounded-full blur-3xl z-0 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#D4AF37]/15 rounded-full blur-3xl z-0 pointer-events-none" />
 
-        <div className="max-w-3xl space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-black px-4 py-1.5 text-xs text-zinc-400">
+        <div className="max-w-3xl space-y-6 relative z-10">
+          <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-black/80 backdrop-blur-md px-4 py-1.5 text-xs text-zinc-300 shadow-md">
             <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
             <span className="font-mono text-[10px] tracking-wider uppercase">
               {language === 'ar' ? 'الخدمة الذاتية وتصفح المنتجات الرقمي' : 'Self-Service & Digital Product Browser'}
             </span>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl font-black tracking-tighter leading-none">
+          <h1 className="text-4xl sm:text-6xl font-black tracking-tighter leading-none drop-shadow-lg text-white">
             {language === 'ar' ? (
               <>
                 تصفح المنتجات والخدمات <br />
@@ -123,7 +155,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
             )}
           </h1>
 
-          <p className="text-sm sm:text-base text-zinc-400 leading-relaxed max-w-xl font-medium">
+          <p className="text-sm sm:text-base text-zinc-300 leading-relaxed max-w-xl font-medium drop-shadow-md">
             {language === 'ar' 
               ? 'تطبيقك المثالي لتصفح قوائم الطعام (Menu)، تفاصيل وأسعار أصناف الملابس، خدمات صالونات التجميل، والعيادات الطبية داخل المنشأة فوراً عبر مسح كود الـ QR المتواجد أمامك.'
               : 'Your ultimate app to browse menus, retail item prices & sizes, salon packages, and medical department services instantly by scanning the QR code in front of you.'}
@@ -295,6 +327,43 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
             </div>
           </div>
 
+          {/* Visitor vs Registered User account difference indicator */}
+          <div className="p-4 rounded-xl border border-[#D4AF37]/30 bg-gradient-to-r from-[#D4AF37]/15 via-zinc-950 to-zinc-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] shrink-0 font-bold shadow-inner">
+                {currentUser ? <User className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+              </div>
+              <div>
+                <h4 className="font-bold text-white flex items-center gap-2 text-sm">
+                  <span>{language === 'ar' ? 'الفرق بين الزائر وصاحب حساب مستخدم مسجل' : 'Visitor vs. Registered User Account Benefit'}</span>
+                  {currentUser ? (
+                    <span className="px-2 py-0.5 text-[10px] bg-green-500/20 text-green-400 border border-green-500/30 rounded-md font-mono font-bold">
+                      {language === 'ar' ? '✔ حسابك مفعل للتفاعل' : '✔ Active User Account'}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-md font-mono font-bold">
+                      {language === 'ar' ? '🔒 وضع الزائر' : '🔒 Visitor Mode'}
+                    </span>
+                  )}
+                </h4>
+                <p className="text-zinc-300 text-[11px] mt-1 leading-relaxed">
+                  {language === 'ar'
+                    ? 'صاحب الحساب كـ (مستخدم مسجل) تظهر له علامة الإعجاب (👍) وعدد المعجبين، وعلامة الإضافة للمفضلة (❤️) للعودة للعروض لاحقاً، بالإضافة لتقييم الإعلان (★). جميع إحصائيات الإعجاب والتقييمات تذهب مباشرة للوحة تحكم المعلن!'
+                    : 'Registered user accounts get Facebook-style Like (👍) counters, Add to Favorites (❤️) saving, and 1-5 Star (★) rating rights. All Likes and Ratings flow directly to the merchant\'s private analytics dashboard!'}
+                </p>
+              </div>
+            </div>
+            {!currentUser && (
+              <button
+                type="button"
+                onClick={() => { if (onNavigateToAccount) onNavigateToAccount(); }}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-500 hover:from-amber-500 hover:to-[#D4AF37] text-black font-extrabold text-xs shrink-0 transition shadow-md cursor-pointer"
+              >
+                {language === 'ar' ? 'سجل دخول كمستخدم الآن' : 'Login as User Now'}
+              </button>
+            )}
+          </div>
+
           {filteredItems.length === 0 ? (
             <div className="text-center py-16 rounded-2xl border border-zinc-900 bg-zinc-950/20 text-zinc-500 space-y-3">
               <HelpCircle className="w-10 h-10 mx-auto text-zinc-700" />
@@ -376,6 +445,93 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                       <span>{language === 'ar' ? 'زيارة صفحة المعلن' : 'Visit Advertiser Page'}</span>
                       <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition" />
                     </div>
+
+                    {/* Like, Favorite & Rate Footer Bar (Visitor vs Account User) */}
+                    <div 
+                      onClick={(e) => e.stopPropagation()} 
+                      className="mt-3 pt-3 border-t border-zinc-900/80 flex flex-wrap items-center justify-between gap-2 text-xs"
+                    >
+                      {currentUser ? (
+                        <div className="flex items-center gap-2">
+                          {/* Like button (Thumbs Up - Facebook style) */}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleLike(qr.id); }}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold transition cursor-pointer border ${
+                              (qr.likedBy || []).includes(currentUser.id)
+                                ? 'bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.25)]'
+                                : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
+                            }`}
+                            title={language === 'ar' ? 'إعجاب بالعرض (👍)' : 'Like Offer'}
+                          >
+                            <ThumbsUp className={`w-3.5 h-3.5 ${ (qr.likedBy || []).includes(currentUser.id) ? 'fill-blue-400 text-blue-400' : '' }`} />
+                            <span className="font-mono text-xs">{qr.likesCount || 0}</span>
+                          </button>
+
+                          {/* Add to Favorites button (Heart) */}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(qr.id); }}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold transition cursor-pointer border ${
+                              (qr.favoritedBy || []).includes(currentUser.id)
+                                ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.25)]'
+                                : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
+                            }`}
+                            title={language === 'ar' ? 'أضف إلى المفضلة (❤️)' : 'Add to Favorites'}
+                          >
+                            <Heart className={`w-3.5 h-3.5 ${ (qr.favoritedBy || []).includes(currentUser.id) ? 'fill-rose-400 text-rose-400' : '' }`} />
+                            <span className="font-mono text-xs">{qr.favoritesCount || 0}</span>
+                          </button>
+
+                          {/* 1-5 Star Rating */}
+                          <div className="flex items-center gap-0.5 bg-zinc-900/90 px-2 py-1 rounded-lg border border-zinc-800" title={language === 'ar' ? 'تقييم العرض' : 'Rate Offer'}>
+                            {[1, 2, 3, 4, 5].map((star) => {
+                              const myRating = (qr.userRatings || {})[currentUser.id] || 0;
+                              return (
+                                <button
+                                  key={star}
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); submitRating(qr.id, star); }}
+                                  className="text-zinc-600 hover:text-amber-400 transition cursor-pointer p-0.5"
+                                  title={language === 'ar' ? `تقييم ${star} نجوم` : `Rate ${star} stars`}
+                                >
+                                  <Star 
+                                    className={`w-3.5 h-3.5 ${ star <= myRating ? 'text-amber-400 fill-amber-400' : '' }`} 
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-900/60 border border-zinc-800/60 text-blue-400" title={language === 'ar' ? 'عدد الإعجابات (👍)' : 'Likes Count'}>
+                            <ThumbsUp className="w-3.5 h-3.5 text-blue-400" />
+                            <span className="font-mono text-xs">{qr.likesCount || 0}</span>
+                          </div>
+                          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-900/60 border border-zinc-800/60 text-rose-400" title={language === 'ar' ? 'عدد الإضافات للمفضلة (❤️)' : 'Favorites Count'}>
+                            <Heart className="w-3.5 h-3.5 text-rose-400" />
+                            <span className="font-mono text-xs">{qr.favoritesCount || 0}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); if (onNavigateToAccount) onNavigateToAccount(); }}
+                            className="flex items-center gap-1 text-[10px] text-[#D4AF37] hover:underline cursor-pointer bg-[#D4AF37]/10 border border-[#D4AF37]/30 px-2 py-1 rounded-lg font-bold"
+                            title={language === 'ar' ? 'سجل دخول كمستخدم للتفاعل' : 'Login to interact'}
+                          >
+                            <Lock className="w-3 h-3 text-[#D4AF37]" />
+                            <span>{language === 'ar' ? 'دخول للتفاعل' : 'Login'}</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* End of line: Total rating average of others */}
+                      <div className="ml-auto rtl:mr-auto rtl:ml-0 flex items-center gap-1 bg-amber-500/10 border border-amber-500/25 px-2.5 py-1 rounded-lg text-amber-400 font-mono text-xs font-bold shrink-0" title={language === 'ar' ? 'إجمالي تقييم الآخرين' : 'Overall rating average of others'}>
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                        <span>{qr.averageRating || '0.0'}</span>
+                        <span className="text-zinc-400 font-sans text-[10px] font-normal">({qr.ratingsCount || 0})</span>
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -387,12 +543,12 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
         <div className="space-y-6">
           <div className="p-6 rounded-2xl border border-zinc-800 bg-zinc-950 relative overflow-hidden h-full flex flex-col justify-between min-h-[400px]">
             {/* Top colored line indicator */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#8B0000] via-[#D4AF37] to-[#8B0000]"></div>
+            <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
             
             <AnimatePresence mode="wait">
-              {selectedLandmark ? (
+              {currentSelected ? (
                 <motion.div
-                  key={selectedLandmark.id}
+                  key={currentSelected.id}
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
@@ -401,7 +557,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                   <div className="space-y-5">
                     <div className="flex justify-between items-start mt-2">
                       <div className="px-3 py-1 bg-[#8B0000]/10 text-[#8B0000] text-[10px] font-bold rounded border border-[#8B0000]/30 tracking-wider uppercase">
-                        {getCategoryLabel(selectedLandmark.category)}
+                        {getCategoryLabel(currentSelected.category)}
                       </div>
                       <button 
                         onClick={() => setSelectedLandmark(null)}
@@ -412,11 +568,11 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                     </div>
 
                     {/* Premium Large Promo Image Banner */}
-                    {selectedLandmark.imageUrl && (
+                    {currentSelected.imageUrl && (
                       <div className="w-full h-44 sm:h-48 rounded-2xl overflow-hidden relative border border-zinc-900/40 bg-zinc-900/60 shadow-inner">
                         <img
-                          src={selectedLandmark.imageUrl}
-                          alt={language === 'ar' ? selectedLandmark.titleAr : selectedLandmark.titleEn}
+                          src={currentSelected.imageUrl}
+                          alt={language === 'ar' ? currentSelected.titleAr : currentSelected.titleEn}
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
                         />
@@ -426,30 +582,116 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
 
                     <div>
                       <h3 className="text-xl font-black text-white tracking-tight leading-tight">
-                        {language === 'ar' ? selectedLandmark.titleAr : selectedLandmark.titleEn}
+                        {language === 'ar' ? currentSelected.titleAr : currentSelected.titleEn}
                       </h3>
-                      {selectedLandmark.addressAr && (
+                      {currentSelected.addressAr && (
                         <p className="text-xs text-[#D4AF37] flex items-center gap-1.5 mt-2 font-mono">
                           <MapPin className="w-3.5 h-3.5 shrink-0" />
-                          <span>{language === 'ar' ? selectedLandmark.addressAr : selectedLandmark.addressEn}</span>
+                          <span>{language === 'ar' ? currentSelected.addressAr : currentSelected.addressEn}</span>
                         </p>
                       )}
                     </div>
 
                     <div className="border-t border-zinc-900 pt-4 space-y-3">
                       <p className="text-xs text-zinc-400 leading-relaxed font-medium">
-                        {language === 'ar' ? (selectedLandmark.descriptionAr || (selectedLandmark as any).descAr) : (selectedLandmark.descriptionEn || (selectedLandmark as any).descEn)}
+                        {language === 'ar' ? (currentSelected.descriptionAr || (currentSelected as any).descAr) : (currentSelected.descriptionEn || (currentSelected as any).descEn)}
                       </p>
 
                       {/* Expiration Date inside Details */}
-                      {selectedLandmark.expiresAt && (
+                      {currentSelected.expiresAt && (
                         <div className="flex items-center gap-1.5 text-rose-500 text-xs font-semibold bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-xl w-max mt-2">
                           <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
                           <span>
                             {language === 'ar' 
-                              ? `تاريخ انتهاء العرض: ${selectedLandmark.expiresAt}` 
-                              : `Offer Expires: ${selectedLandmark.expiresAt}`}
+                              ? `تاريخ انتهاء العرض: ${currentSelected.expiresAt}` 
+                              : `Offer Expires: ${currentSelected.expiresAt}`}
                           </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Interactive Like & Rating Sidebar Box */}
+                    <div className="p-3.5 bg-zinc-900/60 rounded-xl border border-zinc-800 space-y-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-zinc-400 font-bold">
+                          {language === 'ar' ? 'التفاعل وتقييم العرض:' : 'Interaction & Rating:'}
+                        </span>
+                        <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 rounded text-amber-400 font-mono font-bold text-xs">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                          <span>{currentSelected.averageRating || '0.0'}</span>
+                          <span className="text-zinc-400 font-sans text-[10px]">({currentSelected.ratingsCount || 0})</span>
+                        </div>
+                      </div>
+
+                      {currentUser ? (
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-800/80">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleLike(currentSelected.id)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer border ${
+                                (currentSelected.likedBy || []).includes(currentUser.id)
+                                  ? 'bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.25)]'
+                                  : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700'
+                              }`}
+                              title={language === 'ar' ? 'إعجاب (👍)' : 'Like'}
+                            >
+                              <ThumbsUp className={`w-4 h-4 ${ (currentSelected.likedBy || []).includes(currentUser.id) ? 'fill-blue-400 text-blue-400' : '' }`} />
+                              <span className="text-xs">{language === 'ar' ? 'إعجاب (' : 'Like ('}{currentSelected.likesCount || 0})</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleFavorite(currentSelected.id)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer border ${
+                                (currentSelected.favoritedBy || []).includes(currentUser.id)
+                                  ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.25)]'
+                                  : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700'
+                              }`}
+                              title={language === 'ar' ? 'أضف للمفضلة (❤️)' : 'Favorite'}
+                            >
+                              <Heart className={`w-4 h-4 ${ (currentSelected.favoritedBy || []).includes(currentUser.id) ? 'fill-rose-400 text-rose-400' : '' }`} />
+                              <span className="text-xs">{language === 'ar' ? 'مفضل (' : 'Fav ('}{currentSelected.favoritesCount || 0})</span>
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1 bg-zinc-950 px-2.5 py-1.5 rounded-lg border border-zinc-800">
+                            {[1, 2, 3, 4, 5].map((star) => {
+                              const myRating = (currentSelected.userRatings || {})[currentUser.id] || 0;
+                              return (
+                                <button
+                                  key={star}
+                                  type="button"
+                                  onClick={() => submitRating(currentSelected.id, star)}
+                                  className="text-zinc-600 hover:text-amber-400 transition cursor-pointer p-0.5"
+                                  title={language === 'ar' ? `تقييم ${star} نجوم` : `Rate ${star} stars`}
+                                >
+                                  <Star className={`w-4 h-4 ${ star <= myRating ? 'text-amber-400 fill-amber-400' : '' }`} />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="pt-2 border-t border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1 text-blue-400">
+                              <ThumbsUp className="w-3.5 h-3.5" />
+                              <span>{currentSelected.likesCount || 0} {language === 'ar' ? 'إعجاب' : 'Likes'}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-rose-400">
+                              <Heart className="w-3.5 h-3.5" />
+                              <span>{currentSelected.favoritesCount || 0} {language === 'ar' ? 'بالمفضلة' : 'Favorites'}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { if (onNavigateToAccount) onNavigateToAccount(); }}
+                            className="flex items-center gap-1.5 text-xs text-[#D4AF37] hover:underline cursor-pointer font-bold"
+                          >
+                            <Lock className="w-3.5 h-3.5" />
+                            <span>{language === 'ar' ? 'سجل دخول كـ (مستخدم) للتفاعل' : 'Login as User to Like & Rate'}</span>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -458,7 +700,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                     <div className="grid grid-cols-2 gap-3 p-3 bg-black/40 rounded-xl border border-zinc-900 font-mono text-[11px]">
                       <div>
                         <span className="block text-zinc-500">VIEWS:</span>
-                        <span className="block font-bold text-white text-sm">{selectedLandmark.totalScans}</span>
+                        <span className="block font-bold text-white text-sm">{currentSelected.totalScans}</span>
                       </div>
                       <div>
                         <span className="block text-zinc-500">AVAILABILITY:</span>
@@ -470,16 +712,16 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                   <div className="space-y-3 pt-6 border-t border-zinc-900 mt-auto">
                     {/* Simulated Quick Scan trigger */}
                     <button
-                      onClick={() => onSelectScannedQR(selectedLandmark)}
+                      onClick={() => onSelectScannedQR(currentSelected)}
                       className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:from-amber-600 hover:to-[#D4AF37] text-xs font-bold text-black shadow-lg transition duration-200 cursor-pointer"
                     >
                       <Eye className="w-4 h-4" />
                       <span>{language === 'ar' ? 'محاكاة مسح الكود لمشاهدة التفاصيل' : 'Simulate Scan to View Details'}</span>
                     </button>
 
-                    {selectedLandmark.targetUrl && (
+                    {currentSelected.targetUrl && (
                       <a
-                        href={selectedLandmark.targetUrl}
+                        href={currentSelected.targetUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-zinc-800 bg-black hover:bg-zinc-900 text-xs font-bold text-zinc-300 transition cursor-pointer"

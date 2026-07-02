@@ -1,12 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Language, Theme, EmergencyConfig, QRCodeItem } from '../types';
+import { Language, Theme, EmergencyConfig, QRCodeItem, UserProfile } from '../types';
 import { 
   getEmergencyConfigFromDB, 
   updateEmergencyConfigInDB, 
   getQRCodesFromDB, 
   insertQRCodeToDB, 
   incrementQRScanCountInDB,
-  isSupabaseConfigured
+  toggleQRLikeInDB,
+  toggleQRFavoriteInDB,
+  submitQRRatingInDB,
+  isSupabaseConfigured,
+  signUpWithSupabase,
+  signInWithSupabase,
+  signOutFromSupabase,
+  getStoredUserProfile
 } from './supabase';
 import { CountryProfile, detectUserCountry, WORLD_COUNTRIES } from './international';
 
@@ -22,9 +29,17 @@ interface AppContextType {
   qrcodes: QRCodeItem[];
   addQRCode: (item: any) => Promise<QRCodeItem>;
   incrementScans: (qrId: string) => Promise<void>;
+  toggleLike: (qrId: string) => Promise<void>;
+  toggleFavorite: (qrId: string) => Promise<void>;
+  submitRating: (qrId: string, rating: number) => Promise<void>;
   isOnline: boolean;
   supabaseActive: boolean;
   appVersion: string;
+  currentUser: UserProfile | null;
+  loginUser: (email: string, password: string) => Promise<{ user: UserProfile; error?: string }>;
+  registerUser: (email: string, password: string, fullName: string, role: 'user' | 'merchant') => Promise<{ user: UserProfile; error?: string }>;
+  logoutUser: () => Promise<void>;
+  switchUserRole: (role: 'user' | 'merchant') => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -160,6 +175,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadInitialData();
   }, []);
 
+  // 5. User Authentication State & Supabase Integration
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => getStoredUserProfile());
+
+  const loginUser = async (email: string, password: string) => {
+    const result = await signInWithSupabase(email, password);
+    if (result.user) {
+      setCurrentUser(result.user);
+    }
+    return { user: result.user, error: result.error };
+  };
+
+  const registerUser = async (email: string, password: string, fullName: string, role: 'user' | 'merchant') => {
+    const result = await signUpWithSupabase(email, password, fullName, role);
+    if (result.user) {
+      setCurrentUser(result.user);
+    }
+    return { user: result.user, error: result.error };
+  };
+
+  const logoutUser = async () => {
+    await signOutFromSupabase();
+    setCurrentUser(null);
+  };
+
+  const switchUserRole = (newRole: 'user' | 'merchant') => {
+    if (currentUser) {
+      const updated: UserProfile = { ...currentUser, role: newRole };
+      setCurrentUser(updated);
+      try {
+        localStorage.setItem('cityqr_current_user', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Could not save switched role:', e);
+      }
+    }
+  };
+
   // Actions
   const updateEmergencyConfig = async (newConfig: EmergencyConfig) => {
     await updateEmergencyConfigInDB(newConfig);
@@ -181,6 +232,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const toggleLike = async (qrId: string) => {
+    const userId = currentUser ? currentUser.id : 'guest-user';
+    await toggleQRLikeInDB(qrId, userId);
+    setQrcodes((prev) =>
+      prev.map((code) => {
+        if (code.id === qrId) {
+          const likedBy = code.likedBy || [];
+          const isLiked = likedBy.includes(userId);
+          const newLikedBy = isLiked
+            ? likedBy.filter((id) => id !== userId)
+            : [...likedBy, userId];
+          const newLikesCount = Math.max(0, (code.likesCount || 0) + (isLiked ? -1 : 1));
+          return { ...code, likedBy: newLikedBy, likesCount: newLikesCount };
+        }
+        return code;
+      })
+    );
+  };
+
+  const toggleFavorite = async (qrId: string) => {
+    const userId = currentUser ? currentUser.id : 'guest-user';
+    await toggleQRFavoriteInDB(qrId, userId);
+    setQrcodes((prev) =>
+      prev.map((code) => {
+        if (code.id === qrId) {
+          const favoritedBy = code.favoritedBy || [];
+          const isFavorited = favoritedBy.includes(userId);
+          const newFavoritedBy = isFavorited
+            ? favoritedBy.filter((id) => id !== userId)
+            : [...favoritedBy, userId];
+          const newFavoritesCount = Math.max(0, (code.favoritesCount || 0) + (isFavorited ? -1 : 1));
+          return { ...code, favoritedBy: newFavoritedBy, favoritesCount: newFavoritesCount };
+        }
+        return code;
+      })
+    );
+  };
+
+  const submitRating = async (qrId: string, rating: number) => {
+    const userId = currentUser ? currentUser.id : 'guest-user';
+    await submitQRRatingInDB(qrId, userId, rating);
+    setQrcodes((prev) =>
+      prev.map((code) => {
+        if (code.id === qrId) {
+          const userRatings = { ...(code.userRatings || {}), [userId]: rating };
+          const allRatings = Object.values(userRatings) as number[];
+          const ratingsCount = allRatings.length;
+          const sum = allRatings.reduce((acc, r) => acc + r, 0);
+          const averageRating = ratingsCount > 0 ? Number((sum / ratingsCount).toFixed(1)) : 0;
+          return { ...code, userRatings, averageRating, ratingsCount };
+        }
+        return code;
+      })
+    );
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -195,9 +302,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         qrcodes,
         addQRCode,
         incrementScans,
+        toggleLike,
+        toggleFavorite,
+        submitRating,
         isOnline,
         supabaseActive: isSupabaseConfigured,
-        appVersion
+        appVersion,
+        currentUser,
+        loginUser,
+        registerUser,
+        logoutUser,
+        switchUserRole
       }}
     >
       {children}

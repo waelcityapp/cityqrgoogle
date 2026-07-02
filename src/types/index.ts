@@ -24,7 +24,8 @@ export interface EmergencyConfig {
 export interface UserProfile {
   id: string;
   email: string;
-  role: 'admin' | 'operator' | 'citizen' | 'visitor';
+  role: 'user' | 'merchant' | 'admin' | 'operator' | 'citizen' | 'visitor';
+  fullName?: string;
   fullNameAr?: string;
   fullNameEn?: string;
   createdAt: string;
@@ -54,6 +55,13 @@ export interface QRCodeItem {
   isActive: boolean;
   expiresAt?: string;
   imageUrl?: string;
+  likesCount?: number;
+  likedBy?: string[];
+  favoritesCount?: number;
+  favoritedBy?: string[];
+  averageRating?: number;
+  ratingsCount?: number;
+  userRatings?: { [userId: string]: number };
 }
 
 // Zod Validation Schemas

@@ -17,7 +17,10 @@ import {
   Layers,
   Sparkles,
   HeartPulse,
-  Info
+  Info,
+  Heart,
+  Star,
+  ThumbsUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -37,6 +40,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onSelectScanne
   const totalQrs = qrcodes.length;
   const totalScans = qrcodes.reduce((acc, curr) => acc + curr.totalScans, 0);
   const activeCount = qrcodes.filter(q => q.isActive).length;
+
+  // Engagement Stats for Merchant
+  const totalLikes = qrcodes.reduce((acc, curr) => acc + (curr.likesCount || 0), 0);
+  const totalFavorites = qrcodes.reduce((acc, curr) => acc + (curr.favoritesCount || 0), 0);
+  const totalRatingsCount = qrcodes.reduce((acc, curr) => acc + (curr.ratingsCount || 0), 0);
+  const averageOverallRating = qrcodes.length > 0 
+    ? Number((qrcodes.reduce((acc, curr) => acc + (curr.averageRating || 0), 0) / (qrcodes.filter(q => (q.ratingsCount || 0) > 0).length || 1)).toFixed(1))
+    : 0;
 
   // Filter QRs
   const filteredQRs = qrcodes.filter(qr => {
@@ -84,7 +95,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onSelectScanne
       {/* Brand Hero Welcome with Bold Typography top border line & styling */}
       <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-6 md:p-10 relative">
         {/* Top colored line indicator */}
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#8B0000] via-[#D4AF37] to-[#8B0000]"></div>
+        <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
         
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#8B0000]/5 rounded-full blur-3xl -z-10" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#D4AF37]/5 rounded-full blur-3xl -z-10" />
@@ -189,6 +200,64 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onSelectScanne
         </div>
       </div>
 
+      {/* Exclusive Merchant Engagement & Ratings Analytics */}
+      <div className="p-6 rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-900/60 to-zinc-950 space-y-4 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-72 h-72 bg-blue-500/5 rounded-full blur-3xl -z-10" />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-zinc-800/80 pb-4">
+          <div>
+            <h3 className="text-lg font-black text-white flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <ThumbsUp className="w-4 h-4" />
+              </span>
+              <span>{language === 'ar' ? 'لوحة إحصائيات التفاعل الحصري للمعلن' : 'Exclusive Merchant Engagement & Ratings Dashboard'}</span>
+            </h3>
+            <p className="text-xs text-zinc-400 mt-1">
+              {language === 'ar'
+                ? 'إحصائيات إعجابات فيسبوك (👍)، الإضافات للمفضلة (❤️)، وتقييمات العملاء (★) تظهر حصرياً هنا في لوحتك الخاصة لمتابعة أداء إعلاناتك.'
+                : 'Facebook-style Likes (👍), Favorites (❤️), and Customer Star Ratings (★) flow privately here to track your offer performance.'}
+            </p>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30 text-[10px] font-mono font-bold uppercase tracking-wider">
+            {language === 'ar' ? '🔒 سرية للمعلن' : '🔒 Merchant Private'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+          <div className="p-4 rounded-xl bg-zinc-950/80 border border-blue-500/20 flex items-center justify-between">
+            <div>
+              <span className="block text-[11px] text-zinc-400 font-bold uppercase tracking-wider">{language === 'ar' ? 'إجمالي الإعجابات (Like)' : 'Total Likes (👍)'}</span>
+              <span className="text-2xl font-black text-blue-400 font-mono mt-1 block">{totalLikes}</span>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20">
+              <ThumbsUp className="w-5 h-5 fill-blue-400/20" />
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-zinc-950/80 border border-rose-500/20 flex items-center justify-between">
+            <div>
+              <span className="block text-[11px] text-zinc-400 font-bold uppercase tracking-wider">{language === 'ar' ? 'إضافات للمفضلة (Favs)' : 'Total Favorites (❤️)'}</span>
+              <span className="text-2xl font-black text-rose-500 font-mono mt-1 block">{totalFavorites}</span>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 border border-rose-500/20">
+              <Heart className="w-5 h-5 fill-rose-500/20" />
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-zinc-950/80 border border-amber-500/20 flex items-center justify-between">
+            <div>
+              <span className="block text-[11px] text-zinc-400 font-bold uppercase tracking-wider">{language === 'ar' ? 'متوسط تقييمات العملاء' : 'Avg Star Rating (★)'}</span>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-2xl font-black text-amber-400 font-mono">{averageOverallRating}</span>
+                <span className="text-xs text-zinc-400 font-sans">({totalRatingsCount} {language === 'ar' ? 'تقييم' : 'reviews'})</span>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400 border border-amber-500/20">
+              <Star className="w-5 h-5 fill-amber-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Simulator Guidance Section */}
       <div className="p-5 rounded-xl border border-amber-500/20 bg-amber-500/5 flex items-start gap-4">
         <div className="p-2 rounded-lg bg-amber-500/10 text-[#D4AF37] shrink-0">
@@ -263,10 +332,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onSelectScanne
                         {getCategoryIcon(qr.category)}
                         <span>{t[qr.category]}</span>
                       </span>
-                      <span className="text-zinc-500 text-[10px] font-mono flex items-center gap-1">
-                        <Eye className="w-3.5 h-3.5" />
-                        {qr.totalScans}
-                      </span>
+                      <div className="flex items-center gap-2 text-[10px] font-mono">
+                        <span className="text-zinc-500 flex items-center gap-1" title={language === 'ar' ? 'المشاهدات' : 'Views'}>
+                          <Eye className="w-3.5 h-3.5" />
+                          {qr.totalScans}
+                        </span>
+                        <span className="text-blue-400 flex items-center gap-1" title={language === 'ar' ? 'الإعجابات (👍)' : 'Likes'}>
+                          <ThumbsUp className="w-3.5 h-3.5 fill-blue-400/20" />
+                          {qr.likesCount || 0}
+                        </span>
+                        <span className="text-rose-500 flex items-center gap-1" title={language === 'ar' ? 'في المفضلة (❤️)' : 'Favorites'}>
+                          <Heart className="w-3.5 h-3.5 fill-rose-500/20" />
+                          {qr.favoritesCount || 0}
+                        </span>
+                        <span className="text-amber-400 flex items-center gap-1" title={language === 'ar' ? 'التقييم' : 'Rating'}>
+                          <Star className="w-3.5 h-3.5 fill-amber-400" />
+                          {qr.averageRating || '0.0'}
+                        </span>
+                      </div>
                     </div>
 
                     <div>

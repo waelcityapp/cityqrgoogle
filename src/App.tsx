@@ -11,6 +11,7 @@ import { QRGenerator } from './pages/QRGenerator';
 import { QRScanner } from './pages/QRScanner';
 import { EmergencyControl } from './pages/EmergencyControl';
 import { VisitorLanding } from './pages/VisitorLanding';
+import { AccountAuth } from './pages/AccountAuth';
 import { QRCodeItem } from './types';
 import { 
   QrCode, 
@@ -36,7 +37,9 @@ import {
   MessageCircle,
   Facebook,
   Twitter,
-  Mail
+  Mail,
+  User,
+  KeyRound
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { WORLD_COUNTRIES, CountryProfile } from './services/international';
@@ -52,13 +55,15 @@ function CityQRAppContent() {
     emergencyConfig, 
     updateEmergencyConfig,
     isOnline,
-    appVersion
+    appVersion,
+    currentUser
   } = useApp();
   
   const t = translations[language];
 
   // Current active navigation tab (default is the visitor landing page!)
   const [activeTab, setActiveTab] = useState('landing');
+  const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signin');
   const [isCountryModalOpen, setIsCountryModalOpen] = useState(false);
   
   // Scanned QR result state (global so scanner/dashboard can trigger/close it)
@@ -300,47 +305,83 @@ function CityQRAppContent() {
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         
         {/* Custom CityQR Header Bar (Sticky on scroll as requested) */}
-        <header className="sticky top-2 z-40 h-24 sm:h-20 border border-zinc-200 dark:border-[#D4AF37]/20 flex flex-col sm:flex-row items-center justify-between px-6 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg rounded-2xl mb-4 gap-4 py-4 sm:py-0 shadow-md dark:shadow-xl dark:shadow-black/60 transition-all duration-200">
+        <header className="sticky top-2 z-40 min-h-[4.5rem] border border-zinc-200 dark:border-[#D4AF37]/20 flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg rounded-2xl mb-4 gap-3 py-3 sm:py-2.5 shadow-md dark:shadow-xl dark:shadow-black/60 transition-all duration-200">
           
-          {/* Logo Brand with Bold Typography theme elements */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="text-3xl sm:text-4xl font-black tracking-tighter flex items-center" dir="ltr">
-              <span className="text-[#8B0000]">{language === 'ar' ? 'City' : 'City'}</span>
-              <span className="text-[#D4AF37]">{language === 'ar' ? 'QR' : 'QR'}</span>
+          {/* Logo Brand with Bold Typography theme elements and Version badge below */}
+          <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto gap-3 sm:gap-4 shrink-0">
+            <div className="flex flex-col items-start justify-center">
+              <div className="text-3xl sm:text-4xl font-black tracking-tighter flex items-center leading-none" dir="ltr">
+                <span className="text-[#8B0000]">{language === 'ar' ? 'City' : 'City'}</span>
+                <span className="text-[#D4AF37]">{language === 'ar' ? 'QR' : 'QR'}</span>
+              </div>
+              <span className="mt-1 px-2 py-0.5 bg-[#D4AF37]/10 text-[#D4AF37] text-[8.5px] font-extrabold rounded border border-[#D4AF37]/30 tracking-widest uppercase">V1.0.0-BETA</span>
             </div>
 
             {/* Share App Button next to the app name */}
             <button
               onClick={() => setIsShareModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 hover:bg-[#D4AF37]/15 dark:hover:bg-[#D4AF37]/25 text-xs text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer font-bold shadow-sm"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 hover:bg-[#D4AF37]/15 dark:hover:bg-[#D4AF37]/25 text-xs text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer font-bold shadow-sm shrink-0"
               title={language === 'ar' ? 'مشاركة التطبيق عبر وسائل التواصل الاجتماعي' : 'Share app via social media'}
             >
               <Share2 className="w-3.5 h-3.5 text-[#D4AF37]" />
               <span className="text-[11px] font-bold">{language === 'ar' ? 'مشاركة' : 'Share'}</span>
             </button>
-
-            <div className="hidden md:block h-8 w-[1px] bg-zinc-200 dark:bg-zinc-800 ml-1"></div>
-            <div className="hidden md:flex gap-2 ml-1">
-              <span className="px-3 py-1 bg-[#8B0000]/10 text-[#8B0000] text-[10px] font-bold rounded border border-[#8B0000]/30 tracking-wider">DEV PARTNER</span>
-              <span className="px-3 py-1 bg-[#D4AF37]/10 text-[#D4AF37] text-[10px] font-bold rounded border border-[#D4AF37]/30 tracking-wider">V1.0.0-BETA</span>
-            </div>
           </div>
 
-          {/* Controls Panel */}
-          <div className="flex items-center gap-3">
+          {/* Controls Panel - Horizontally scrollable left & right */}
+          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto max-w-full pb-1 sm:pb-0 scrollbar-none flex-nowrap justify-start sm:justify-end w-full sm:w-auto px-1">
             
             {/* Install App Button */}
             <button
               onClick={() => setIsInstallModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/20 hover:text-white transition cursor-pointer font-bold shadow-sm"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/20 hover:text-white transition cursor-pointer font-bold shadow-sm shrink-0 whitespace-nowrap"
               title={language === 'ar' ? 'ثبت التطبيق على هاتفك' : 'Install app on your phone'}
             >
               <Smartphone className="w-4 h-4 text-[#D4AF37] animate-pulse" />
-              <span className="hidden xs:inline">{language === 'ar' ? 'ثبت التطبيق' : 'Install App'}</span>
+              <span>{language === 'ar' ? 'ثبت التطبيق' : 'Install App'}</span>
             </button>
 
+            {/* Account & Auth Buttons */}
+            {currentUser ? (
+              <button
+                onClick={() => setActiveTab('account')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition cursor-pointer font-bold shadow-sm shrink-0 whitespace-nowrap ${
+                  activeTab === 'account'
+                    ? 'border-[#D4AF37] bg-gradient-to-r from-[#8B0000]/20 to-[#D4AF37]/20 text-[#D4AF37]'
+                    : 'border-zinc-300 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:border-[#D4AF37]'
+                }`}
+                title={language === 'ar' ? 'حسابي وصلاحيات Supabase' : 'My Account & Supabase Role'}
+              >
+                <User className="w-4 h-4 text-[#D4AF37]" />
+                <span>
+                  {currentUser.role === 'merchant' ? (language === 'ar' ? 'تاجر' : 'Merchant') : (language === 'ar' ? 'عميل' : 'Customer')}
+                </span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+                <button
+                  type="button"
+                  onClick={() => { setAuthInitialMode('signin'); setActiveTab('account'); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4AF37]/60 bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:from-amber-600 hover:to-[#D4AF37] text-black font-extrabold text-xs shadow-md transition cursor-pointer"
+                  title={language === 'ar' ? 'تسجيل الدخول لحسابك' : 'Sign In to your account'}
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-zinc-950 shrink-0" />
+                  <span>{language === 'ar' ? 'تسجيل الدخول' : 'Sign In'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthInitialMode('signup'); setActiveTab('account'); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#8B0000]/40 bg-[#8B0000]/10 hover:bg-[#8B0000]/20 text-white font-bold text-xs shadow-sm transition cursor-pointer"
+                  title={language === 'ar' ? 'إنشاء حساب جديد' : 'Create new account'}
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                  <span>{language === 'ar' ? 'إنشاء حساب' : 'Sign Up'}</span>
+                </button>
+              </div>
+            )}
+
             {/* Connection pills */}
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${
+            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border shrink-0 whitespace-nowrap ${
               isOnline 
                 ? 'bg-green-500/5 dark:bg-green-500/10 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/20' 
                 : 'bg-red-500/5 dark:bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/20'
@@ -352,7 +393,7 @@ function CityQRAppContent() {
             {/* International Country & Currency Selector Pill */}
             <button
               onClick={() => setIsCountryModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-[#8B0000]/10 dark:from-[#D4AF37]/15 dark:to-[#8B0000]/15 text-xs text-black dark:text-white hover:border-[#D4AF37] hover:scale-105 transition duration-150 cursor-pointer font-bold shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-[#8B0000]/10 dark:from-[#D4AF37]/15 dark:to-[#8B0000]/15 text-xs text-black dark:text-white hover:border-[#D4AF37] hover:scale-105 transition duration-150 cursor-pointer font-bold shadow-sm shrink-0 whitespace-nowrap"
               title={language === 'ar' ? 'تغيير الدولة والعملة وأرقام الطوارئ' : 'Change Country, Currency & Emergency Info'}
             >
               <span className="text-base leading-none">{userCountry?.flag || '🌍'}</span>
@@ -364,7 +405,7 @@ function CityQRAppContent() {
             <button
               id="lang-toggle-btn"
               onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-xs text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900 transition cursor-pointer font-semibold shadow-sm dark:shadow-none"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-xs text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900 transition cursor-pointer font-semibold shadow-sm dark:shadow-none shrink-0 whitespace-nowrap"
               title={language === 'ar' ? 'English' : 'تغيير اللغة للعربية'}
             >
               <Globe className="w-4 h-4 text-[#D4AF37]" />
@@ -372,7 +413,7 @@ function CityQRAppContent() {
             </button>
 
             {/* Theme Toggle Button List (Theme switcher) */}
-            <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 p-0.5">
+            <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 p-0.5 shrink-0 whitespace-nowrap">
               {(['dark', 'light', 'system'] as const).map((tMode) => (
                 <button
                   key={tMode}
@@ -394,10 +435,11 @@ function CityQRAppContent() {
           </div>
         </header>
 
-        {/* Tab Navigation Menu */}
-        <nav className="flex justify-start border-b border-zinc-200 dark:border-zinc-900 pb-px max-w-full overflow-x-auto gap-1 scrollbar-none">
+        {/* Tab Navigation Menu (Hidden on mobile where bottom nav is active) */}
+        <nav className="hidden md:flex justify-start border-b border-zinc-200 dark:border-zinc-900 pb-px max-w-full overflow-x-auto gap-1 scrollbar-none">
           {[
             { id: 'landing', label: t.visitorPortal, icon: Compass },
+            { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي وصلاحياتي' : 'My Account') : (language === 'ar' ? 'دخول / حساب جديد' : 'Sign In / Up'), icon: User },
             { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
             { id: 'scanner', label: t.scanner, icon: QrCode },
             { id: 'generator', label: t.generator, icon: Sparkles },
@@ -435,6 +477,14 @@ function CityQRAppContent() {
                   setActiveTab('scanner');
                 }}
                 onOpenInstallModal={() => setIsInstallModalOpen(true)}
+                onNavigateToAccount={() => { setAuthInitialMode('signin'); setActiveTab('account'); }}
+              />
+            )}
+            {activeTab === 'account' && (
+              <AccountAuth 
+                key="account"
+                onNavigate={setActiveTab}
+                initialMode={authInitialMode}
               />
             )}
             {activeTab === 'dashboard' && (
@@ -478,10 +528,11 @@ function CityQRAppContent() {
         </div>
       </footer>
 
-      {/* Bottom Navigation Bar (Fixed at bottom for native mobile app experience) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg border-t border-zinc-200 dark:border-zinc-800 shadow-2xl px-2 py-1.5 flex justify-around items-center">
+      {/* Bottom Navigation Bar (Fixed at bottom for native mobile app experience, hidden on desktop) */}
+      <nav className="flex md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg border-t border-zinc-200 dark:border-zinc-800 shadow-2xl px-2 py-1.5 justify-around items-center">
         {[
           { id: 'landing', label: t.visitorPortal, icon: Compass },
+          { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'Account') : (language === 'ar' ? 'دخول / تسجيل' : 'Sign In'), icon: User },
           { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
           { id: 'scanner', label: t.scanner, icon: QrCode },
           { id: 'generator', label: t.generator, icon: Sparkles },
@@ -537,7 +588,7 @@ function CityQRAppContent() {
               exit={{ scale: 0.95, y: 15, opacity: 0 }}
               className="relative w-full max-w-md overflow-hidden rounded-2xl border border-zinc-200 dark:border-[#D4AF37]/30 bg-white dark:bg-zinc-950 p-6 shadow-2xl text-zinc-950 dark:text-zinc-100 z-10"
             >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#8B0000] via-[#D4AF37] to-[#8B0000]"></div>
+              <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
               
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
@@ -688,7 +739,7 @@ function CityQRAppContent() {
               exit={{ scale: 0.95, y: 15, opacity: 0 }}
               className="relative w-full max-w-md overflow-hidden rounded-2xl border border-zinc-200 dark:border-[#D4AF37]/30 bg-white dark:bg-zinc-950 p-6 shadow-2xl text-zinc-950 dark:text-zinc-100 z-10"
             >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#8B0000] via-[#D4AF37] to-[#8B0000]"></div>
+              <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
               
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
@@ -858,7 +909,7 @@ function CityQRAppContent() {
               className="relative w-full max-w-3xl bg-white dark:bg-zinc-900 rounded-3xl border border-[#D4AF37]/30 shadow-2xl p-6 md:p-8 overflow-hidden max-h-[90vh] flex flex-col"
             >
               {/* Top Banner Accent */}
-              <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#8B0000] via-[#D4AF37] to-[#8B0000]" />
+              <div className="absolute top-0 left-0 right-0 h-1.5 animated-glow-line" />
 
               {/* Close Button */}
               <button

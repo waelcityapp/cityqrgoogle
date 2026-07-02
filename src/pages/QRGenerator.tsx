@@ -147,7 +147,7 @@ export const QRGenerator: React.FC = () => {
       <div className="lg:col-span-2 space-y-6">
         <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-950 relative overflow-hidden">
           {/* Top colored line indicator */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#8B0000] via-[#D4AF37] to-[#8B0000]"></div>
+          <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
           
           <h2 className="text-xl font-black tracking-tighter text-[#D4AF37] mb-2 flex items-center gap-2 mt-2">
             <Sparkles className="w-5 h-5 text-[#8B0000]" />
@@ -399,7 +399,7 @@ export const QRGenerator: React.FC = () => {
       <div className="space-y-6">
         <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-950 text-center flex flex-col items-center justify-center space-y-6 relative overflow-hidden">
           {/* Top colored line indicator */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#8B0000] via-[#D4AF37] to-[#8B0000]"></div>
+          <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
           
           <div className="absolute top-0 right-0 w-24 h-24 bg-[#D4AF37]/5 rounded-bl-full pointer-events-none" />
           

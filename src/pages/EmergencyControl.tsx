@@ -53,7 +53,7 @@ export const EmergencyControl: React.FC = () => {
     >
       <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-950 relative overflow-hidden">
         {/* Top colored line indicator */}
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#8B0000] via-[#D4AF37] to-[#8B0000]"></div>
+        <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
         
         <div className="flex items-start gap-4 mb-6 mt-2">
           <div className="p-3 rounded-lg bg-[#8B0000]/10 text-red-500 border border-[#8B0000]/20">

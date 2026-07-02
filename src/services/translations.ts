@@ -76,7 +76,8 @@ export const translations = {
     qrText: "كيو آر",
     backToHome: "العودة للرئيسية",
     visitorPortal: "بوابة الزوار والعملاء",
-    partnerPortal: "بوابة التاجر والشركاء"
+    partnerPortal: "بوابة التاجر والشركاء",
+    accountPortal: "حسابي والصلاحيات"
   },
   en: {
     appName: "CityQR",
@@ -156,6 +157,7 @@ export const translations = {
     qrText: "QR",
     backToHome: "Back to Home",
     visitorPortal: "Visitor & Customer Portal",
-    partnerPortal: "Merchant Portal"
+    partnerPortal: "Merchant Portal",
+    accountPortal: "Account & Roles"
   }
 };

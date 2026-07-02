@@ -160,3 +160,37 @@ html.light .bg-[#D4AF37] {
 .glow-red {
   box-shadow: 0 0 15px rgba(139, 0, 0, 0.2);
 }
+
+@keyframes movingLightGlow {
+  0% {
+    background-position: 0% 50%;
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.7), 0 0 20px rgba(139, 0, 0, 0.5);
+    filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.8));
+  }
+  50% {
+    background-position: 100% 50%;
+    box-shadow: 0 0 18px rgba(255, 225, 125, 1), 0 0 32px rgba(220, 38, 38, 0.9), 0 0 8px #ffffff;
+    filter: drop-shadow(0 0 12px rgba(255, 215, 0, 1));
+  }
+  100% {
+    background-position: 0% 50%;
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.7), 0 0 20px rgba(139, 0, 0, 0.5);
+    filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.8));
+  }
+}
+
+.animated-glow-line {
+  background: linear-gradient(
+    90deg,
+    #8B0000 0%,
+    #dc2626 20%,
+    #D4AF37 45%,
+    #ffffff 50%,
+    #D4AF37 55%,
+    #dc2626 80%,
+    #8B0000 100%
+  );
+  background-size: 250% 100%;
+  animation: movingLightGlow 3s ease-in-out infinite;
+  z-index: 20;
+}

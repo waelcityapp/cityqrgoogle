@@ -25,7 +25,13 @@ import {
   Check,
   QrCode,
   CheckCircle2,
-  Smartphone
+  Smartphone,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Star,
+  ThumbsUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -47,6 +53,39 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
   const [hasTorch, setHasTorch] = useState(false);
   const [torchActive, setTorchActive] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  
+  // Test QR Modal State for pre-deployment camera & system verification
+  const [showTestQRModal, setShowTestQRModal] = useState(false);
+  const [selectedTestIndex, setSelectedTestIndex] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isTestUrlCopied, setIsTestUrlCopied] = useState(false);
+
+  // Compute current test QR item and its real QR image URL
+  const currentTestItem = qrcodes[selectedTestIndex] || qrcodes[0] || null;
+  const testQRDataString = currentTestItem ? (currentTestItem.targetUrl || currentTestItem.id) : 'https://cityqr.app/test';
+  const testQRImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&color=000000&bgcolor=ffffff&data=${encodeURIComponent(testQRDataString)}`;
+
+  // Download QR code image so user can test "Scan Photo / File" from their gallery
+  const handleDownloadTestQR = async () => {
+    if (!testQRImageUrl) return;
+    setIsDownloading(true);
+    try {
+      const response = await fetch(testQRImageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `CityQR_TestBarcode_${currentTestItem?.id || 'demo'}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      window.open(testQRImageUrl, '_blank');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -122,11 +161,33 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
   }, [qrcodes, incrementScans, onSelectScannedQR]);
 
   // Real-time video frame scanning loop
-  const scanVideoFrame = useCallback(() => {
-    if (!isScanningRef.current || !videoRef.current) return;
+  const scanVideoFrame = useCallback(async () => {
+    if (!isScanningRef.current) return;
     
+    if (!videoRef.current || videoRef.current.readyState < 2 || videoRef.current.videoWidth === 0) {
+      // Keep checking while mobile camera stream is initializing/mounting
+      animationFrameRef.current = requestAnimationFrame(() => {
+        setTimeout(scanVideoFrame, 150);
+      });
+      return;
+    }
+
     const video = videoRef.current;
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    if (video.readyState >= video.HAVE_CURRENT_DATA) {
+      // Try hardware BarcodeDetector first on supported browsers (Android Chrome)
+      if ('BarcodeDetector' in window) {
+        try {
+          const detector = new (window as any).BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e'] });
+          const barcodes = await detector.detect(video);
+          if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+            handleDecodedQR(barcodes[0].rawValue.trim());
+            return;
+          }
+        } catch (bdErr) {
+          // Fallback to jsQR below
+        }
+      }
+
       if (!canvasRef.current) {
         canvasRef.current = document.createElement('canvas');
       }
@@ -178,9 +239,16 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
         });
       } catch (errFallback) {
         // Fallback if specific resolution or ideal constraints fail
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: targetFacingMode } 
-        });
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: targetFacingMode } 
+          });
+        } catch (errFinal) {
+          // Final mobile fallback: open any available camera stream on device
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: true 
+          });
+        }
       }
       
       streamRef.current = stream;
@@ -198,6 +266,8 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('autoplay', 'true');
+        videoRef.current.muted = true;
         videoRef.current.play().catch(() => {});
       }
       
@@ -306,6 +376,19 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
     }
   }, [scannedQR, cameraActive, scanVideoFrame]);
 
+  // Ensure video element receives stream and plays reliably on mobile devices
+  useEffect(() => {
+    if (cameraActive && videoRef.current && streamRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('autoplay', 'true');
+        videoRef.current.muted = true;
+        videoRef.current.play().catch(() => {});
+      }
+    }
+  }, [cameraActive, facingMode]);
+
   useEffect(() => {
     return () => {
       stopCamera();
@@ -349,39 +432,59 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
             ? 'قم بتوجيه كاميرا هاتفك نحو أي ملصق CityQR أو رمز QR خارجي لقراءته فوراً دون الحاجة لأي تطبيق ماسح خارجي.'
             : 'Point your device camera at any CityQR tag or external QR code to scan instantly without needing any external scanner app.'}
         </p>
+
+        <div className="pt-3 flex justify-center">
+          <button
+            onClick={() => setShowTestQRModal(true)}
+            className="inline-flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-amber-500 to-[#8B0000] hover:scale-105 text-zinc-950 font-black text-xs md:text-sm shadow-xl transition-all duration-200 cursor-pointer border-2 border-white/20 glow-gold"
+          >
+            <QrCode className="w-5 h-5 text-zinc-950 animate-bounce" />
+            <span>{language === 'ar' ? 'توليد وعرض باركود تجريبي للفحص (اختبار النظام قبل النشر على Vercel)' : 'Generate & View System Test QR Code (Test Before Vercel Deploy)'}</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Main Camera Scan Viewport */}
         <div className="md:col-span-2 space-y-4">
-          <div className="relative aspect-video md:aspect-square max-w-md mx-auto rounded-2xl border-4 border-[#8B0000] bg-zinc-950 overflow-hidden glow-red flex flex-col items-center justify-center shadow-2xl">
+          <div className={`relative aspect-video md:aspect-square max-w-md mx-auto rounded-3xl border-4 bg-zinc-950 overflow-hidden flex flex-col items-center justify-center shadow-2xl transition-all duration-500 ${cameraActive ? 'border-[#D4AF37] shadow-[0_0_40px_rgba(212,175,55,0.5)] ring-4 ring-[#D4AF37]/30' : 'border-[#8B0000] glow-red'}`}>
             
+            {/* Always rendered video element so videoRef is NEVER null when camera starts! */}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`w-full h-full object-cover ${cameraActive ? 'block' : 'hidden'}`}
+            />
+
             {cameraActive ? (
               <>
-                {/* Active Video Element */}
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
+                {/* Laser scan line animation with glowing gold aura */}
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent animate-bounce shadow-[0_0_18px_#D4AF37] z-10" style={{ animationDuration: '2.2s' }} />
                 
-                {/* Laser scan line animation */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent animate-bounce shadow-[0_0_12px_#D4AF37] z-10" style={{ animationDuration: '2.5s' }} />
-                
-                {/* Target reticle borders */}
-                <div className="absolute inset-10 border-2 border-dashed border-[#D4AF37]/60 rounded-2xl pointer-events-none flex flex-col items-center justify-between p-3">
+                {/* Target reticle borders with pulsing glowing indicator */}
+                <div className="absolute inset-6 md:inset-8 border-2 border-dashed border-[#D4AF37]/80 rounded-3xl pointer-events-none flex flex-col items-center justify-between p-3 animate-[pulse_1.8s_ease-in-out_infinite] shadow-[inset_0_0_25px_rgba(212,175,55,0.2)]">
+                  {/* Glowing corners with radar accent */}
                   <div className="flex justify-between w-full">
-                    <div className="w-4 h-4 border-t-2 border-l-2 border-[#D4AF37]"></div>
-                    <div className="w-4 h-4 border-t-2 border-r-2 border-[#D4AF37]"></div>
+                    <div className="w-6 h-6 border-t-4 border-l-4 border-[#D4AF37] rounded-tl-xl shadow-[0_0_12px_#D4AF37]"></div>
+                    <div className="w-6 h-6 border-t-4 border-r-4 border-[#D4AF37] rounded-tr-xl shadow-[0_0_12px_#D4AF37]"></div>
                   </div>
-                  <span className="text-[10px] text-[#D4AF37] font-mono tracking-widest uppercase bg-black/80 px-3 py-1 rounded-full border border-[#D4AF37]/30 shadow-md">
-                    {language === 'ar' ? 'جاري البحث عن رمز QR...' : 'SCANNING LIVE'}
-                  </span>
+                  
+                  {/* Active heartbeat status badge */}
+                  <div className="flex items-center gap-2 bg-zinc-950/90 backdrop-blur-md px-4 py-2 rounded-full border-2 border-[#D4AF37] shadow-[0_0_20px_rgba(212,175,55,0.6)] transform hover:scale-105 transition">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-xs text-[#D4AF37] font-black font-mono tracking-widest uppercase">
+                      {language === 'ar' ? 'جاري البحث عن رمز QR...' : 'SCANNING FOR QR CODE...'}
+                    </span>
+                  </div>
+
                   <div className="flex justify-between w-full">
-                    <div className="w-4 h-4 border-b-2 border-l-2 border-[#D4AF37]"></div>
-                    <div className="w-4 h-4 border-b-2 border-r-2 border-[#D4AF37]"></div>
+                    <div className="w-6 h-6 border-b-4 border-l-4 border-[#D4AF37] rounded-bl-xl shadow-[0_0_12px_#D4AF37]"></div>
+                    <div className="w-6 h-6 border-b-4 border-r-4 border-[#D4AF37] rounded-br-xl shadow-[0_0_12px_#D4AF37]"></div>
                   </div>
                 </div>
 
@@ -447,29 +550,39 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
                   </div>
                 )}
 
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-xs pt-1">
-                  <button
-                    onClick={() => startCamera()}
-                    className="w-full sm:w-auto flex-1 rounded-xl bg-gradient-to-r from-[#8B0000] to-red-700 hover:from-red-700 hover:to-[#8B0000] text-xs font-bold px-5 py-3 text-white transition duration-200 shadow-lg cursor-pointer flex items-center justify-center gap-2 border border-red-600/30"
-                  >
-                    <Camera className="w-4 h-4 text-[#D4AF37]" />
-                    <span>{language === 'ar' ? 'تشغيل الكاميرا الحقيقية' : 'Start Real Camera'}</span>
-                  </button>
+                <div className="flex flex-col gap-2.5 w-full max-w-xs pt-1">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 w-full">
+                    <button
+                      onClick={() => startCamera()}
+                      className="w-full sm:w-auto flex-1 rounded-xl bg-gradient-to-r from-[#8B0000] to-red-700 hover:from-red-700 hover:to-[#8B0000] text-xs font-bold px-4 py-3 text-white transition duration-200 shadow-lg cursor-pointer flex items-center justify-center gap-2 border border-red-600/30"
+                    >
+                      <Camera className="w-4 h-4 text-[#D4AF37]" />
+                      <span>{language === 'ar' ? 'تشغيل الكاميرا الحقيقية' : 'Start Real Camera'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full sm:w-auto flex-1 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold px-4 py-3 text-zinc-200 transition duration-200 shadow-lg cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Upload className="w-4 h-4 text-[#D4AF37]" />
+                      <span>{language === 'ar' ? 'مسح من ألبوم الصور' : 'Scan Photo / File'}</span>
+                    </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleImageUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                  </div>
 
                   <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full sm:w-auto flex-1 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-bold px-4 py-3 text-zinc-200 transition duration-200 shadow-lg cursor-pointer flex items-center justify-center gap-2"
+                    onClick={() => setShowTestQRModal(true)}
+                    className="w-full rounded-xl bg-gradient-to-r from-[#D4AF37] via-amber-500 to-[#D4AF37] hover:brightness-110 text-xs font-black px-4 py-2.5 text-zinc-950 transition duration-200 shadow-lg cursor-pointer flex items-center justify-center gap-2 border border-white/20"
                   >
-                    <Upload className="w-4 h-4 text-[#D4AF37]" />
-                    <span>{language === 'ar' ? 'مسح من ألبوم الصور' : 'Scan Photo / File'}</span>
+                    <QrCode className="w-4 h-4 text-zinc-950" />
+                    <span>{language === 'ar' ? 'عرض باركود تجريبي جاهز للفحص والاختبار' : 'Show System Test QR Code'}</span>
                   </button>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageUpload}
-                    accept="image/*"
-                    className="hidden"
-                  />
                 </div>
               </div>
             )}
@@ -480,12 +593,21 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
         <div className="space-y-4">
           <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-4 relative overflow-hidden shadow-xl">
             {/* Top colored line indicator */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#8B0000] via-[#D4AF37] to-[#8B0000]"></div>
+            <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
             
             <h3 className="text-xs font-black tracking-tighter text-[#D4AF37] flex items-center gap-2 mt-2">
               <Play className="w-4 h-4 text-[#8B0000]" />
               {t.simulateScan}
             </h3>
+            
+            <button
+              onClick={() => setShowTestQRModal(true)}
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:brightness-110 text-zinc-950 font-black text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer border border-white/20"
+            >
+              <QrCode className="w-4 h-4 text-zinc-950" />
+              <span>{language === 'ar' ? 'عرض صورة باركود ثابت (لاختبار الكاميرا والألبوم)' : 'View Static Test QR Code (Test Camera/File)'}</span>
+            </button>
+
             <p className="text-xs text-zinc-400 leading-relaxed font-medium">
               {language === 'ar'
                 ? 'يمكنك أيضاً تجربة القراءة الافتراضية لمعالم CityQR المسجلة في قاعدة البيانات لاختبار النظام:'
@@ -586,6 +708,24 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
                   </div>
                 )}
 
+                {/* Likes, Favorites & Rating Badge on Scanned QR */}
+                <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-xs shadow-inner">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 text-blue-400 font-mono font-bold" title={language === 'ar' ? 'الإعجابات' : 'Likes'}>
+                      <ThumbsUp className="w-4 h-4 fill-blue-400" />
+                      <span>{scannedQR.likesCount || 0} {language === 'ar' ? 'إعجاب' : 'Likes'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-rose-500 font-mono font-bold" title={language === 'ar' ? 'في المفضلة' : 'Favorites'}>
+                      <Heart className="w-4 h-4 fill-rose-500" />
+                      <span>{scannedQR.favoritesCount || 0} {language === 'ar' ? 'مفضلة' : 'Favs'}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-amber-400 font-mono font-bold">
+                    <Star className="w-4 h-4 fill-amber-400" />
+                    <span>★ {scannedQR.averageRating || '0.0'} ({scannedQR.ratingsCount || 0})</span>
+                  </div>
+                </div>
+
                 {/* Action buttons (Copy + Open Link/Search) */}
                 <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
                   <button
@@ -615,6 +755,154 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
                     </span>
                   </a>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Test QR Code Modal for Camera & System Verification */}
+      <AnimatePresence>
+        {showTestQRModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="w-full max-w-md bg-zinc-950 border-2 border-[#D4AF37] rounded-3xl overflow-hidden shadow-2xl glow-gold my-8"
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-zinc-900 bg-gradient-to-r from-zinc-900 via-black to-zinc-900 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37]">
+                    <QrCode className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-sm font-extrabold text-[#D4AF37]">
+                    {language === 'ar' ? 'صورة باركود تجريبي ثابت (فحص النظام)' : 'System Test QR Code'}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowTestQRModal(false)}
+                  className="p-1.5 rounded-full bg-zinc-900 text-zinc-400 hover:text-white transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-5 text-xs md:text-sm">
+                {/* Info Note */}
+                <div className="p-3.5 rounded-2xl bg-[#8B0000]/15 border border-[#8B0000]/40 text-zinc-300 text-xs leading-relaxed flex items-start gap-2.5">
+                  <Sparkles className="w-5 h-5 text-[#D4AF37] shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-[#D4AF37] block mb-1">
+                      {language === 'ar' ? 'جاهز للاختبار قبل الرفع على Vercel' : 'Ready for verification before Vercel deploy'}
+                    </span>
+                    {language === 'ar' 
+                      ? 'هذا باركود حقيقي ومسجل في قاعدة بيانات CityQR. يمكنك تحميل الصورة وتجربتها في (مسح من ألبوم الصور)، أو توجيه كاميرا هاتف آخر للشاشة لاختبار سرعة الكاميرا.'
+                      : 'This is a real pre-registered QR code in CityQR. Download it to test "Scan Photo / File", or point another phone camera at this screen.'}
+                  </div>
+                </div>
+
+                {/* Switcher for Pre-registered Items */}
+                {qrcodes.length > 0 && (
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-2xl bg-zinc-900 border border-zinc-800">
+                    <button
+                      onClick={() => setSelectedTestIndex((prev) => (prev - 1 + qrcodes.length) % qrcodes.length)}
+                      title={language === 'ar' ? 'الرمز السابق' : 'Previous QR'}
+                      className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer"
+                    >
+                      {language === 'ar' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                    </button>
+                    <div className="text-center truncate px-2 flex-1">
+                      <span className="text-[10px] font-bold text-[#D4AF37] block uppercase tracking-wider">
+                        {language === 'ar' ? `رمز مسجل (${selectedTestIndex + 1} من ${qrcodes.length})` : `Registered Item (${selectedTestIndex + 1} of ${qrcodes.length})`}
+                      </span>
+                      <span className="text-xs font-extrabold text-white truncate block">
+                        {currentTestItem ? (language === 'ar' ? currentTestItem.titleAr : currentTestItem.titleEn) : 'CityQR Demo Tag'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setSelectedTestIndex((prev) => (prev + 1) % qrcodes.length)}
+                      title={language === 'ar' ? 'الرمز التالي' : 'Next QR'}
+                      className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer"
+                    >
+                      {language === 'ar' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </button>
+                  </div>
+                )}
+
+                {/* The QR Code Visual Box (White high contrast) */}
+                <div className="p-4 rounded-3xl bg-white border-4 border-[#D4AF37] shadow-inner flex flex-col items-center justify-center text-center">
+                  <img
+                    src={testQRImageUrl}
+                    alt="System Test QR Code"
+                    className="w-56 h-56 md:w-64 md:h-64 object-contain mx-auto transition-transform hover:scale-105"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="mt-2 text-[11px] font-extrabold text-zinc-800 uppercase tracking-widest bg-zinc-100 px-3 py-1 rounded-full border border-zinc-300">
+                    {language === 'ar' ? 'باركود فحص مباشر 100% واضح' : '100% Clear Test Barcode'}
+                  </div>
+                </div>
+
+                {/* Target Data String Display */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-zinc-400 block">
+                    {language === 'ar' ? 'الرابط المسجل داخل الباركود:' : 'Embedded Target URL:'}
+                  </span>
+                  <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 font-mono text-[11px] truncate select-all">
+                    {testQRDataString}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  {/* Download Button */}
+                  <button
+                    onClick={handleDownloadTestQR}
+                    disabled={isDownloading}
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:brightness-110 text-zinc-950 font-black text-xs py-3.5 transition duration-200 cursor-pointer shadow-lg disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4 text-zinc-950" />
+                    <span>
+                      {isDownloading 
+                        ? (language === 'ar' ? 'جاري التحميل...' : 'Downloading...') 
+                        : (language === 'ar' ? 'تحميل صورة الباركود' : 'Download QR Image')}
+                    </span>
+                  </button>
+
+                  {/* Simulate Instant Scan Button */}
+                  <button
+                    onClick={() => {
+                      if (currentTestItem) {
+                        handleSimulateScan(currentTestItem);
+                      }
+                      setShowTestQRModal(false);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#8B0000] to-red-700 hover:from-red-700 hover:to-[#8B0000] text-white font-black text-xs py-3.5 transition duration-200 cursor-pointer shadow-lg border border-red-600/30"
+                  >
+                    <Play className="w-4 h-4 text-[#D4AF37]" />
+                    <span>{language === 'ar' ? 'تجربة قراءة هذا الرمز فوراً' : 'Simulate Scan Now'}</span>
+                  </button>
+                </div>
+
+                {/* Copy Target URL Button */}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(testQRDataString);
+                    setIsTestUrlCopied(true);
+                    setTimeout(() => setIsTestUrlCopied(false), 2000);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-xs font-bold py-2.5 transition duration-200 cursor-pointer"
+                >
+                  {isTestUrlCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-zinc-400" />}
+                  <span>{isTestUrlCopied ? (language === 'ar' ? 'تم نسخ الرابط بنجاح!' : 'URL Copied!') : (language === 'ar' ? 'نسخ الرابط المسجل' : 'Copy Embedded URL')}</span>
+                </button>
               </div>
             </motion.div>
           </motion.div>
