@@ -120,14 +120,14 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
 
           <p className="text-sm sm:text-base text-zinc-400 leading-relaxed max-w-xl font-medium">
             {language === 'ar' 
-              ? 'تطبيقك المثالي لتصفح قوائم الطعام (Menu)، تفاصيل وأسعار أصناف الملابس، خدمات صالونات التجميل، والعيادات الطبية الموثوقة والمعتمدة.'
+              ? 'تطبيقك المثالي لتصفح قوائم الطعام (Menu)، تفاصيل وأسعار أصناف الملابس، خدمات صالونات التجميل، والعيادات الطبية داخل المنشأة فوراً عبر مسح كود الـ QR المتواجد أمامك.'
               : 'Your ultimate app to browse menus, retail item prices & sizes, salon packages, and medical department services instantly by scanning the QR code in front of you.'}
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-2">
             <button 
               onClick={onOpenScanner}
-              className="flex items-center justify-center gap-2 rounded-xl bg-[#8B0000] hover:bg-[#8B0000]/90 px-8 py-4 text-sm font-bold text-white uppercase tracking-wider transition cursor-pointer"
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#8B0000] hover:bg-[#8B0000]/90 px-8 py-4 text-sm font-bold text-white uppercase tracking-wider transition cursor-pointer shadow-lg shadow-[#8B0000]/20"
             >
               <QrCode className="w-5 h-5" />
               <span>{language === 'ar' ? 'افتح الكاميرا لمسح كود QR' : 'Open Camera to Scan QR'}</span>
@@ -159,7 +159,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
 
       {/* Categories Horizontal Filter Tab Bar */}
       <div className="space-y-4">
-        <h2 className="text-xl font-black tracking-tighter text-white flex items-center gap-2 bg-black px-3 py-2 rounded-lg w-fit">
+        <h2 className="text-xl font-black tracking-tighter text-zinc-900 dark:text-white flex items-center gap-2">
           <Compass className="w-5 h-5 text-[#8B0000]" />
           <span>{language === 'ar' ? 'تصفح حسب فئة النشاط' : 'Explore by Business Category'}</span>
         </h2>
@@ -191,8 +191,8 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
         {/* Commercial Directory Card Feed */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <h3 className="text-lg font-black text-white tracking-tight uppercase bg-black px-3 py-2 rounded-lg w-fit">
-              {language === 'ar' ? 'أهم العروض والخصومات الحالية' : 'Hot Deals & Top Discounts'}
+            <h3 className="text-lg font-black text-zinc-900 dark:text-white tracking-tight uppercase">
+              {language === 'ar' ? 'أقوى العروض وأعلى الخصومات' : 'Hot Deals & Top Discounts'}
               <span className="text-[#D4AF37] text-sm ml-2 font-mono font-bold">({filteredItems.length})</span>
             </h3>
 
@@ -385,7 +385,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                     {/* Simulated Quick Scan trigger */}
                     <button
                       onClick={() => onSelectScannedQR(selectedLandmark)}
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:from-amber-600 hover:to-[#D4AF37] text-xs font-bold text-black transition cursor-pointer uppercase tracking-wider"
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:from-amber-600 hover:to-[#D4AF37] text-xs font-bold text-black shadow-lg transition duration-200 cursor-pointer"
                     >
                       <Eye className="w-4 h-4" />
                       <span>{language === 'ar' ? 'محاكاة مسح الكود لمشاهدة التفاصيل' : 'Simulate Scan to View Details'}</span>
@@ -396,7 +396,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                         href={selectedLandmark.targetUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-zinc-800 bg-black hover:bg-zinc-900 text-xs font-bold text-zinc-300 transition cursor-pointer uppercase tracking-wider"
+                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-zinc-800 bg-black hover:bg-zinc-900 text-xs font-bold text-zinc-300 transition cursor-pointer"
                       >
                         <ExternalLink className="w-4 h-4 text-[#8B0000]" />
                         <span>{t.openLinkBtn}</span>

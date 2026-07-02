@@ -69,6 +69,7 @@ function CityQRAppContent() {
   // Social Sharing Modal states
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const shareUrl = "https://cityqrgoogle.vercel.app/";
 
   useEffect(() => {
     // Listen for PWA installation trigger
@@ -124,7 +125,7 @@ function CityQRAppContent() {
   // 1. EMERGENCY: Maintenance Mode Block Page
   if (emergencyConfig.maintenanceMode) {
     return (
-      <div className="min-h-screen bg-[#000000] text-gray-100 flex flex-col justify-between p-6 antialiased select-none font-sans">
+      <div className="min-h-screen bg-zinc-50 dark:bg-[#000000] text-zinc-900 dark:text-gray-100 flex flex-col justify-between p-6 antialiased select-none font-sans transition-colors duration-300">
         {/* Language selector accessible in maintenance mode */}
         <div className="flex justify-end">
           <button
@@ -176,7 +177,7 @@ function CityQRAppContent() {
   // 2. EMERGENCY: Forced Update Required Block Page
   if (isUpdateRequired) {
     return (
-      <div className="min-h-screen bg-[#000000] text-gray-100 flex flex-col justify-between p-6 antialiased select-none font-sans">
+      <div className="min-h-screen bg-zinc-50 dark:bg-[#000000] text-zinc-900 dark:text-gray-100 flex flex-col justify-between p-6 antialiased select-none font-sans transition-colors duration-300">
         {/* Language selector accessible in update mode */}
         <div className="flex justify-end">
           <button
@@ -235,7 +236,7 @@ function CityQRAppContent() {
 
   // 3. Regular Application View
   return (
-    <div className="min-h-screen bg-[#000000] text-gray-100 font-sans flex flex-col justify-between">
+    <div className="min-h-screen bg-zinc-50 dark:bg-[#000000] text-zinc-900 dark:text-gray-100 font-sans flex flex-col justify-between transition-colors duration-300">
       
       {/* Dynamic PWA installation Banner */}
       <AnimatePresence>
@@ -668,12 +669,12 @@ function CityQRAppContent() {
                     <input
                       type="text"
                       readOnly
-                      value={window.location.origin + window.location.pathname}
+                      value={shareUrl}
                       className="flex-1 bg-transparent px-2 font-mono text-zinc-700 dark:text-zinc-300 select-all outline-none text-[11px]"
                     />
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(window.location.origin + window.location.pathname);
+                        navigator.clipboard.writeText(shareUrl);
                         setIsCopied(true);
                         setTimeout(() => setIsCopied(false), 2000);
                       }}
@@ -704,7 +705,7 @@ function CityQRAppContent() {
                     {/* WhatsApp */}
                     <a
                       href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                        (language === 'ar' ? 'شاهد أهم العروض والخصومات الذكية على منصة CityQR!' : 'Check out the active smart offers & discounts on CityQR Platform!') + ' ' + (window.location.origin + window.location.pathname)
+                        (language === 'ar' ? 'شاهد أهم العروض والخصومات الذكية على منصة CityQR!' : 'Check out the active smart offers & discounts on CityQR Platform!') + ' ' + shareUrl
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -716,7 +717,7 @@ function CityQRAppContent() {
 
                     {/* Telegram */}
                     <a
-                      href={`https://t.me/share/url?url=${encodeURIComponent(window.location.origin + window.location.pathname)}&text=${encodeURIComponent(
+                      href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(
                         language === 'ar' ? 'شاهد أهم العروض والخصومات الذكية على منصة CityQR!' : 'Check out the active smart offers & discounts on CityQR Platform!'
                       )}`}
                       target="_blank"
@@ -729,7 +730,7 @@ function CityQRAppContent() {
 
                     {/* Facebook */}
                     <a
-                      href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.origin + window.location.pathname)}`}
+                      href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2.5 p-3 rounded-xl border border-blue-600/20 bg-blue-600/5 hover:bg-blue-600/10 text-blue-600 dark:text-blue-400 font-bold transition duration-150"
@@ -742,7 +743,7 @@ function CityQRAppContent() {
                     <a
                       href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
                         language === 'ar' ? 'شاهد أهم العروض والخصومات الذكية على منصة CityQR!' : 'Check out the active smart offers & discounts on CityQR Platform!'
-                      )}&url=${encodeURIComponent(window.location.origin + window.location.pathname)}`}
+                      )}&url=${encodeURIComponent(shareUrl)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2.5 p-3 rounded-xl border border-zinc-500/20 bg-zinc-500/5 hover:bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 font-bold transition duration-150"
@@ -756,7 +757,7 @@ function CityQRAppContent() {
                       href={`mailto:?subject=${encodeURIComponent(
                         language === 'ar' ? 'منصة CityQR الذكية' : 'CityQR Smart Platform'
                       )}&body=${encodeURIComponent(
-                        (language === 'ar' ? 'مرحباً، تفضل بزيارة منصة CityQR الذكية لمشاهدة أهم العروض والخصومات الذكية المتوفرة بالمنشأة حالياً:' : 'Hi, please visit the CityQR smart platform to check the latest available smart offers and discounts:') + ' ' + (window.location.origin + window.location.pathname)
+                        (language === 'ar' ? 'مرحباً، تفضل بزيارة منصة CityQR الذكية لمشاهدة أهم العروض والخصومات الذكية المتوفرة بالمنشأة حالياً:' : 'Hi, please visit the CityQR smart platform to check the latest available smart offers and discounts:') + ' ' + shareUrl
                       )}`}
                       className="flex items-center gap-2.5 p-3 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-600 dark:text-red-400 font-bold transition duration-150 col-span-2 justify-center"
                     >
@@ -774,7 +775,7 @@ function CityQRAppContent() {
                         await navigator.share({
                           title: language === 'ar' ? 'منصة CityQR الذكية' : 'CityQR Smart Platform',
                           text: language === 'ar' ? 'شاهد أهم العروض والخصومات الذكية على منصة CityQR!' : 'Check out the active smart offers & discounts on CityQR Platform!',
-                          url: window.location.origin + window.location.pathname
+                          url: shareUrl
                         });
                       } catch (err) {
                         console.log('Error sharing via Web Share API', err);
