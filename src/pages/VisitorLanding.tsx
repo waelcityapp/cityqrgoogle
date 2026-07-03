@@ -36,10 +36,12 @@ import {
   Send,
   Facebook,
   Twitter,
-  ChevronDown
+  ChevronDown,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { smartMatchQRItem } from '../services/searchUtils';
+import { OfferCardDescription } from '../components/OfferCardDescription';
 
 interface VisitorLandingProps {
   onSwitchToMerchant: () => void;
@@ -61,7 +63,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
 
   // States
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<LandmarkCategory | 'all' | 'favorites'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<LandmarkCategory | 'all' | 'favorites' | 'expiring'>('all');
   const [maxDistanceKm, setMaxDistanceKm] = useState<number | 'all'>('all');
   const [showDistanceMenu, setShowDistanceMenu] = useState<boolean>(false);
   const [sortByDistance, setSortByDistance] = useState<boolean>(false);
@@ -72,6 +74,34 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
   const [sharingOffer, setSharingOffer] = useState<QRCodeItem | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [visitorTipModal, setVisitorTipModal] = useState<{ isOpen: boolean; actionNameAr?: string; actionNameEn?: string }>({ isOpen: false });
+  const [visibleCount, setVisibleCount] = useState<number>(6);
+  const [showBackToTop, setShowBackToTop] = useState<boolean>(false);
+
+  useEffect(() => {
+    setVisibleCount(6);
+  }, [selectedCategory, searchQuery, maxDistanceKm, sortByDistance]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // Find Offer #6 (index 5) or fallback to the last available card in the DOM
+      const targetCard = document.getElementById('offer-card-5') || document.querySelector('[id^="offer-card-"]:last-of-type');
+      if (targetCard) {
+        const rect = targetCard.getBoundingClientRect();
+        // Show floating buttons only after reaching/passing the end of Offer #6
+        if (window.scrollY > 300 && rect.bottom <= window.innerHeight + 80) {
+          setShowBackToTop(true);
+        } else {
+          setShowBackToTop(false);
+        }
+      } else if (window.scrollY > 900) {
+        setShowBackToTop(true);
+      } else {
+        setShowBackToTop(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [visibleCount, selectedCategory, searchQuery, maxDistanceKm, sortByDistance]);
 
   const handleProtectedAction = (actionAr: string, actionEn: string, callback: () => void) => {
     if (!currentUser) {
@@ -204,6 +234,8 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
         ? true 
         : selectedCategory === 'favorites' 
         ? (qr.favoritedBy || []).includes(currentUser?.id || '') 
+        : selectedCategory === 'expiring'
+        ? (!!qr.expiresAt || (qr.titleAr && (qr.titleAr.includes('عرض') || qr.titleAr.includes('خصم') || qr.titleAr.includes('خاص'))) || qr.isActive)
         : qr.category === selectedCategory;
 
     const dist = getItemDistance(qr);
@@ -214,6 +246,13 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
 
     return matchesSearch && matchesCategory && matchesDistance;
   }).sort((a, b) => {
+    if (selectedCategory === 'expiring') {
+      if (a.expiresAt && b.expiresAt) {
+        return new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime();
+      }
+      if (a.expiresAt) return -1;
+      if (b.expiresAt) return 1;
+    }
     if (sortByDistance) {
       const distA = getItemDistance(a) ?? 9999;
       const distB = getItemDistance(b) ?? 9999;
@@ -222,8 +261,11 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
     return 0;
   });
 
-  const categoriesList: { id: LandmarkCategory | 'all' | 'favorites'; labelAr: string; labelEn: string; icon: any; color: string }[] = [
+  const displayedItems = filteredItems.slice(0, visibleCount);
+
+  const categoriesList: { id: LandmarkCategory | 'all' | 'favorites' | 'expiring'; labelAr: string; labelEn: string; icon: any; color: string }[] = [
     { id: 'all', labelAr: '🌟 الكل', labelEn: 'All', icon: Layers, color: 'text-[#D4AF37]' },
+    { id: 'expiring', labelAr: '⏳ قارب على الانتهاء', labelEn: '⏳ Expiring Soon', icon: Clock, color: 'text-rose-500 font-extrabold animate-pulse' },
     { id: 'monument', labelAr: '🍽️ مطاعم ومقاهي', labelEn: 'Restaurants & Cafés', icon: Utensils, color: 'text-amber-500' },
     { id: 'culture', labelAr: '🏛️ سياحة ومعالم', labelEn: 'Tourism & Landmarks', icon: Globe, color: 'text-purple-500' },
     { id: 'facility', labelAr: '🛠️ خدمات ومرافق', labelEn: 'Services & Facilities', icon: Grid, color: 'text-cyan-500' },
@@ -247,8 +289,52 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className="space-y-4"
+      className="space-y-6 pb-6"
     >
+      {/* 🏆 Official CityDeals Promoted Banner - Compact (Half Size) */}
+      <a
+        href="https://cityappnew.vercel.app/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block w-full rounded-2xl bg-gradient-to-r from-[#0A0A0A] via-[#14141E] to-[#0A0A0A] p-2.5 sm:p-3 border border-[#EF4444]/80 shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)] hover:border-[#EF4444] transition-all duration-300 group/banner relative overflow-hidden"
+      >
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#EF4444] via-[#F59E0B] to-[#EF4444] animate-pulse"></div>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 relative z-10">
+          <div className="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto overflow-hidden">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#EF4444]/20 border border-[#EF4444]/50 flex items-center justify-center text-lg sm:text-xl shrink-0 shadow-[0_0_12px_rgba(239,68,68,0.4)] group-hover/banner:scale-105 transition-transform">
+              🏆
+            </div>
+            <div className="flex flex-col text-start overflow-hidden">
+              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                <span className="bg-gradient-to-r from-red-600 to-rose-600 text-white border border-red-400 font-black text-[10px] sm:text-xs px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.6)] shrink-0 flex items-center gap-1">
+                  <span>📢</span>
+                  <span>{language === 'ar' ? 'إعلان ترويجي خارجي' : 'Sponsored Ad'}</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-lg bg-[#0A0A0A] border border-[#EF4444] shadow-[0_0_10px_rgba(239,68,68,0.4)] shrink-0" dir="ltr">
+                  <span className="text-white font-black text-sm sm:text-base tracking-tight drop-shadow">City</span>
+                  <span className="bg-gradient-to-r from-[#EF4444] via-[#F97316] to-[#F59E0B] bg-clip-text text-transparent font-black text-sm sm:text-base tracking-tight">Deals</span>
+                  <span className="bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/50 font-black text-[8px] sm:text-[9px] px-1 py-0.2 rounded-full shadow ml-1">EG</span>
+                </span>
+                <span className="bg-gradient-to-r from-amber-500/20 to-red-500/20 text-amber-300 border border-amber-500/60 text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.3)]">
+                  {language === 'ar' ? '🚧 قريباً تحت الإنشاء' : '🚧 Coming Soon - Under Construction'}
+                </span>
+              </div>
+              <p className="text-[11px] sm:text-xs font-extrabold text-zinc-300 group-hover/banner:text-white transition-colors leading-snug line-clamp-1">
+                {language === 'ar'
+                  ? 'أكبر تطبيق متخصص في العروض والخصومات وكسب النقاط في مدينتك! (انتظرونا قريباً جداً)'
+                  : 'The largest app for deals, discounts & earning points! (Coming Soon)'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+            <span className="w-full sm:w-auto px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-gradient-to-r from-[#EF4444] to-[#DC2626] hover:from-[#DC2626] hover:to-[#EF4444] text-white font-black text-[11px] sm:text-xs shadow-[0_0_12px_rgba(239,68,68,0.5)] flex items-center justify-center gap-1.5 shrink-0 group-hover/banner:scale-105 transition-transform">
+              <span>{language === 'ar' ? 'تصفح التطبيق' : 'Explore App'}</span>
+              <span className={language === 'ar' ? 'rotate-180' : ''}>➜</span>
+            </span>
+          </div>
+        </div>
+      </a>
+
       {/* Dynamic Hero Section with Top Red/Gold Ribbon and Shopping Background */}
       <div className="relative overflow-hidden rounded-3xl border border-zinc-800/80 bg-zinc-950 p-5 sm:p-8 shadow-[0_15px_50px_-10px_rgba(0,0,0,0.8)] dark:shadow-[0_4px_25px_-2px_rgba(255,255,255,0.1),0_0_15px_rgba(255,255,255,0.05)] dark:hover:shadow-[0_8px_32px_-2px_rgba(255,255,255,0.18),0_0_20px_rgba(255,255,255,0.08)] min-h-[250px] sm:min-h-[270px] flex flex-col justify-center group/hero hover:border-[#D4AF37]/30 transition-all duration-700">
         {/* Beautiful Shopping Woman Background Image - Always Visible */}
@@ -379,6 +465,8 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold whitespace-nowrap transition-all duration-300 cursor-pointer snap-start shrink-0 ${
                       isSelected 
                         ? 'bg-gradient-to-r from-[#D4AF37] via-amber-400 to-[#D4AF37] border-[#D4AF37] text-black font-black shadow-[0_0_15px_rgba(212,175,55,0.3)] scale-[1.02]' 
+                        : cat.id === 'expiring'
+                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:text-rose-300 hover:border-rose-500/50 hover:bg-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.15)]'
                         : 'bg-zinc-950/80 border-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700/80 hover:bg-zinc-900'
                     }`}
                   >
@@ -532,11 +620,12 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {filteredItems.map((qr) => {
+              {displayedItems.map((qr, index) => {
                 const distKm = getItemDistance(qr);
                 return (
                 <motion.div
                   key={qr.id}
+                  id={`offer-card-${index}`}
                   layoutId={`card-${qr.id}`}
                   onClick={() => {
                     setSelectedLandmark(qr);
@@ -582,13 +671,14 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                       {language === 'ar' ? qr.titleAr : qr.titleEn}
                     </h4>
 
-                    <p className="text-xs text-zinc-400 mt-1.5 line-clamp-2 leading-relaxed font-medium">
-                      {language === 'ar' ? (qr.descriptionAr || (qr as any).descAr) : (qr.descriptionEn || (qr as any).descEn)}
-                    </p>
+                    <OfferCardDescription
+                      description={language === 'ar' ? (qr.descriptionAr || (qr as any).descAr || '') : (qr.descriptionEn || (qr as any).descEn || '')}
+                      language={language}
+                    />
 
                     {/* Expiration Date Badge */}
                     {qr.expiresAt && (
-                      <div className="flex items-center gap-1.5 text-rose-500 text-[10px] mt-3 font-semibold bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-lg w-max">
+                      <div className="flex items-center gap-1.5 text-rose-500 text-[10px] mt-1.5 font-semibold bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-md w-max">
                         <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
                         <span>
                           {language === 'ar' 
@@ -600,7 +690,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between gap-2 text-zinc-500 text-[10px] mt-4 font-mono">
+                    <div className="flex items-center justify-between gap-2 text-zinc-500 text-[10px] mt-2 font-mono">
                       <div className="flex items-center gap-1.5 truncate">
                         <MapPin className="w-3 h-3 text-[#D4AF37] shrink-0" />
                         <span className="truncate">
@@ -617,7 +707,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                     </div>
 
                     {/* Simulated action overlay indicator & Total rating */}
-                    <div className="mt-4 pt-3 border-t border-zinc-900 flex justify-between items-center text-[10px] font-bold text-zinc-400 transition uppercase">
+                    <div className="mt-2.5 pt-2 border-t border-zinc-900 flex justify-between items-center text-[10px] font-bold text-zinc-400 transition uppercase">
                       <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/25 px-2.5 py-1 rounded-lg text-amber-400 font-mono text-xs font-bold shrink-0" title={language === 'ar' ? 'إجمالي تقييم العرض' : 'Overall offer rating'}>
                         <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
                         <span>{qr.averageRating || '0.0'}</span>
@@ -632,7 +722,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                     {/* Like, Favorite & Rate Footer Bar */}
                     <div 
                       onClick={(e) => e.stopPropagation()} 
-                      className="mt-3 pt-3 border-t border-zinc-900/80 flex flex-wrap items-center justify-between gap-2 text-xs"
+                      className="mt-2.5 pt-2 border-t border-zinc-900/80 flex flex-wrap items-center justify-between gap-2 text-xs"
                     >
                       <div className="flex items-center gap-2">
                         {/* Like button (Thumbs Up - Facebook style) */}
@@ -711,6 +801,82 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
             })}
             </div>
           )}
+
+          {/* Pagination Controls & Back to Top */}
+          {filteredItems.length > 0 && (
+            <div className="mt-8 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 pt-6 border-t border-zinc-800/80">
+              {filteredItems.length > visibleCount ? (
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount(prev => prev + 6)}
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-amber-400 to-[#D4AF37] text-black font-black text-sm hover:brightness-110 active:scale-95 transition-all duration-300 shadow-[0_0_25px_rgba(212,175,55,0.3)] flex items-center justify-center gap-2.5 cursor-pointer group"
+                >
+                  <ChevronDown className="w-5 h-5 text-black group-hover:translate-y-0.5 transition-transform" />
+                  <span>
+                    {language === 'ar'
+                      ? `👇 عرض المزيد من العروض (${filteredItems.length - visibleCount} متبقي)`
+                      : `👇 Load More Deals (${filteredItems.length - visibleCount} remaining)`}
+                  </span>
+                </button>
+              ) : (
+                <div className="text-xs text-zinc-500 font-medium px-4 py-2 bg-zinc-900/60 rounded-xl border border-zinc-800">
+                  {language === 'ar' ? '✨ تم عرض جميع العروض المتاحة حالياً' : '✨ All available deals displayed'}
+                </div>
+              )}
+
+              {/* Distinctive Rectangular CityDeals Promo Button */}
+              <a
+                href="https://cityappnew.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto px-6 py-4 rounded-3xl bg-gradient-to-r from-[#0A0A0A] via-[#14141E] to-[#0A0A0A] hover:from-[#14141E] hover:to-[#1a1a2e] text-white shadow-[0_0_30px_rgba(239,68,68,0.5)] border-2 border-[#EF4444]/70 hover:border-[#EF4444] hover:scale-105 active:scale-95 transition-all duration-300 flex items-center justify-center gap-4 cursor-pointer group"
+              >
+                <span className="flex h-3.5 w-3.5 relative shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#EF4444] opacity-85"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-[#EF4444] shadow-[0_0_10px_#EF4444]"></span>
+                </span>
+                <div className="flex flex-col text-start gap-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="bg-gradient-to-r from-red-600 to-rose-600 text-white border border-red-400 font-black text-xs px-2.5 py-0.5 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.6)] shrink-0 flex items-center gap-1">
+                      <span>📢</span>
+                      <span>{language === 'ar' ? 'إعلان ترويجي خارجي' : 'Sponsored Ad'}</span>
+                    </span>
+                    <span className="text-lg">🚀</span>
+                    <span className="inline-flex items-center gap-0.5 px-3 py-1 rounded-xl bg-[#0A0A0A] border-2 border-[#EF4444] shadow-[0_0_15px_rgba(239,68,68,0.5)]" dir="ltr">
+                      <span className="text-white font-black text-base sm:text-lg tracking-tight drop-shadow">City</span>
+                      <span className="bg-gradient-to-r from-[#EF4444] via-[#F97316] to-[#F59E0B] bg-clip-text text-transparent font-black text-base sm:text-lg tracking-tight">Deals</span>
+                      <span className="bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/50 font-black text-[9px] px-1.5 py-0.5 rounded-full shadow ml-1">EG</span>
+                    </span>
+                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/60 font-black text-xs px-2.5 py-0.5 rounded-full animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.4)]">
+                      {language === 'ar' ? '🚧 قريباً تحت الإنشاء' : '🚧 Under Construction'}
+                    </span>
+                  </div>
+                  <span className="text-xs sm:text-sm font-extrabold text-zinc-200 group-hover:text-white transition-colors leading-relaxed">
+                    {language === 'ar'
+                      ? '🚧 قريباً تحت الإنشاء - أكبر تطبيق متخصص في العروض والخصومات وكسب النقاط'
+                      : '🚧 Coming Soon Under Construction - Largest App for Deals & Discounts'}
+                  </span>
+                </div>
+                <span className={`text-lg font-black text-[#EF4444] shrink-0 transition-transform ${language === 'ar' ? 'group-hover:-translate-x-1.5' : 'group-hover:translate-x-1.5'}`}>
+                  {language === 'ar' ? '←' : '→'}
+                </span>
+              </a>
+              
+              {displayedItems.length >= 4 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-[#D4AF37] border border-[#D4AF37]/30 hover:border-[#D4AF37] font-bold text-sm active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                  title={language === 'ar' ? 'العودة لأعلى الصفحة' : 'Back to Top'}
+                >
+                  <span className="text-lg">👆</span>
+                  <span>{language === 'ar' ? 'العودة للأعلى' : 'Back to Top'}</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Selected Landmark Interactive Details Sidebar */}
@@ -777,15 +943,15 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                       )}
                     </div>
 
-                    <div className="border-t border-zinc-900 pt-4 space-y-3">
+                    <div className="border-t border-zinc-900 pt-3 space-y-2">
                       <p className="text-xs text-zinc-400 leading-relaxed font-medium">
                         {language === 'ar' ? (currentSelected.descriptionAr || (currentSelected as any).descAr) : (currentSelected.descriptionEn || (currentSelected as any).descEn)}
                       </p>
 
                       {/* Expiration Date inside Details */}
                       {currentSelected.expiresAt && (
-                        <div className="flex items-center gap-1.5 text-rose-500 text-xs font-semibold bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-xl w-max mt-2">
-                          <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                        <div className="flex items-center gap-1.5 text-rose-500 text-xs font-semibold bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-lg w-max mt-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
                           <span>
                             {language === 'ar' 
                               ? `تاريخ انتهاء العرض: ${currentSelected.expiresAt}` 
@@ -796,7 +962,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                     </div>
 
                     {/* Interactive Like & Rating Sidebar Box */}
-                    <div className="p-3.5 bg-zinc-900/60 rounded-xl border border-zinc-800 space-y-3">
+                    <div className="p-3 bg-zinc-900/60 rounded-xl border border-zinc-800 space-y-2.5 mt-2">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-zinc-400 font-bold">
                           {language === 'ar' ? 'التفاعل وتقييم العرض:' : 'Interaction & Rating:'}
@@ -1168,6 +1334,62 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Action Buttons: CityDeals Promo & Back to Top (Show together on scroll) */}
+      <AnimatePresence>
+        {showBackToTop && (
+          <motion.div
+            initial={{ opacity: 0, y: 25, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 25, scale: 0.95 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className={`fixed bottom-20 md:bottom-8 ${language === 'ar' ? 'left-4 md:left-8' : 'right-4 md:right-8'} z-50 flex items-center gap-2.5 max-w-[calc(100vw-2rem)] sm:max-w-md pointer-events-none`}
+          >
+            {/* Distinctive Rectangular CityDeals Promo Button */}
+            <a
+              href="https://cityappnew.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pointer-events-auto flex items-center gap-3 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl bg-gradient-to-r from-[#0A0A0A] via-[#14141E] to-[#0A0A0A] hover:from-[#14141E] hover:to-[#1a1a2e] text-white shadow-[0_5px_30px_rgba(239,68,68,0.5)] border-2 border-[#EF4444]/70 hover:border-[#EF4444] hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer group shrink overflow-hidden"
+              title="CityDeals"
+            >
+              <span className="flex h-3 w-3 relative shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#EF4444] opacity-85"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-[#EF4444] shadow-[0_0_8px_#EF4444]"></span>
+              </span>
+              <div className="flex flex-col text-start overflow-hidden gap-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="bg-gradient-to-r from-red-600 to-rose-600 text-white border border-red-400 font-black text-[9px] px-1.5 py-0.5 rounded-md shadow-[0_0_8px_rgba(239,68,68,0.6)] shrink-0 flex items-center gap-0.5">
+                    <span>📢</span>
+                    <span>{language === 'ar' ? 'إعلان ترويجي' : 'Ad'}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-[#0A0A0A] border-2 border-[#EF4444] shadow-[0_0_10px_rgba(239,68,68,0.4)] w-fit" dir="ltr">
+                    <span className="text-xs mr-0.5">🚀</span>
+                    <span className="text-white font-black text-xs tracking-tight drop-shadow">City</span>
+                    <span className="bg-gradient-to-r from-[#EF4444] via-[#F97316] to-[#F59E0B] bg-clip-text text-transparent font-black text-xs tracking-tight">Deals</span>
+                    <span className="bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/50 font-black text-[8px] px-1 py-0.2 rounded-full shadow ml-0.5">EG</span>
+                  </span>
+                </div>
+                <span className="text-[10px] sm:text-[11px] font-extrabold text-amber-300 group-hover:text-white leading-tight line-clamp-1 transition-colors">
+                  {language === 'ar'
+                    ? '🚧 قريباً تحت الإنشاء - أكبر تطبيق متخصص في العروض والخصومات'
+                    : '🚧 Coming Soon - Under Construction (Deals & Discounts)'}
+                </span>
+              </div>
+            </a>
+
+            {/* Floating Back to Top Button */}
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="pointer-events-auto bg-gradient-to-tr from-[#D4AF37] via-amber-400 to-[#D4AF37] text-black px-3.5 py-3 sm:p-3.5 rounded-2xl shadow-[0_5px_25px_rgba(212,175,55,0.6)] hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer border border-white/40 flex items-center gap-1 font-black text-xs group shrink-0"
+              title={language === 'ar' ? 'العودة للأعلى' : 'Back to Top'}
+            >
+              <span className="text-base group-hover:-translate-y-1 transition-transform inline-block">👆</span>
+              <span className="font-black">{language === 'ar' ? 'للأعلى' : 'Top'}</span>
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>

@@ -23,6 +23,7 @@ import {
   ThumbsUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { OfferCardDescription } from '../components/OfferCardDescription';
 import { smartMatchQRItem } from '../services/searchUtils';
 
 interface DashboardProps {
@@ -347,9 +348,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onSelectScanne
                       <h3 className="text-base font-bold text-white group-hover:text-[#D4AF37] transition">
                         {language === 'ar' ? qr.titleAr : qr.titleEn}
                       </h3>
-                      <p className="text-xs text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
-                        {language === 'ar' ? qr.descriptionAr : qr.descriptionEn}
-                      </p>
+                      <OfferCardDescription
+                        description={language === 'ar' ? (qr.descriptionAr || '') : (qr.descriptionEn || '')}
+                        language={language}
+                      />
                     </div>
 
                     {qr.location && (

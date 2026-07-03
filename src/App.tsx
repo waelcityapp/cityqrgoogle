@@ -92,6 +92,15 @@ function CityQRAppContent() {
   const [isQuickMenuOpen, setIsQuickMenuOpen] = useState(false);
   const mockNotifications = [
     {
+      id: 0,
+      titleAr: 'تطبيق CityDeals قريباً (تحت الإنشاء) 🚧',
+      titleEn: 'Coming Soon: CityDeals (Under Construction) 🚧',
+      descAr: 'انتظروا قريباً تطبيق CityDeals (قريباً تحت الإنشاء) أكبر تطبيق للعروض والخصومات في جميع المجالات',
+      descEn: 'Stay tuned for CityDeals (Coming Soon - Under Construction), the biggest app for offers and discounts across all fields!',
+      timeAr: 'الآن',
+      timeEn: 'Just now'
+    },
+    {
       id: 1,
       titleAr: 'عرض خاص جديد! 💥',
       titleEn: 'New Special Offer! 💥',
@@ -117,6 +126,24 @@ function CityQRAppContent() {
       descEn: 'Emergency response system is running at 100% efficiency across the city.',
       timeAr: 'أمس',
       timeEn: 'Yesterday'
+    },
+    {
+      id: 4,
+      titleAr: 'تحديث حركة المرور والمواصلات 🚌',
+      titleEn: 'Traffic & Transport Update 🚌',
+      descAr: 'تم تحديث أوقات وصول الحافلات الذكية ومسارات الطرق في المحاور الرئيسية بالمدينة.',
+      descEn: 'Smart bus arrival times and road routes on major axes have been updated.',
+      timeAr: 'منذ يومين',
+      timeEn: '2 days ago'
+    },
+    {
+      id: 5,
+      titleAr: 'دليل الأنشطة والفعاليات الأسبوعي 🎭',
+      titleEn: 'Weekly Events & Activities Guide 🎭',
+      descAr: 'تعرف على أحدث الفعاليات الثقافية والترفيهية المقامة هذا الأسبوع في المدينة الذكية.',
+      descEn: 'Explore the latest cultural and entertainment events taking place this week in the smart city.',
+      timeAr: 'منذ 3 أيام',
+      timeEn: '3 days ago'
     }
   ];
 
@@ -515,7 +542,7 @@ function CityQRAppContent() {
                   title={language === 'ar' ? 'الإشعارات والتنبيهات' : 'Notifications'}
                 >
                   <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#8B0000] dark:text-red-400 animate-bounce" />
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 shadow">3</span>
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 shadow">{mockNotifications.length}</span>
                 </button>
               </div>
 
@@ -643,7 +670,7 @@ function CityQRAppContent() {
         </nav>
 
         {/* Active Content Module with transitions */}
-        <main className="py-1 min-h-[60vh]">
+        <main className="py-1 min-h-[60vh] pb-8 sm:pb-12">
           <AnimatePresence mode="wait">
             {activeTab === 'landing' && (
               <VisitorLanding 
@@ -691,7 +718,7 @@ function CityQRAppContent() {
       </div>
 
       {/* Custom Monospace Status Bar Footer */}
-      <footer className="h-10 bg-black border-t border-zinc-900 px-4 sm:px-8 flex items-center justify-between text-[10px] font-mono text-zinc-500 mt-12 mb-16 sm:mb-20 select-none">
+      <footer className="py-6 bg-black border-t border-zinc-900 px-4 sm:px-8 flex flex-wrap items-center justify-between gap-4 text-[10px] font-mono text-zinc-500 mt-16 pb-36 md:pb-28 mb-16 md:mb-0 select-none">
         <div className="flex gap-4 sm:gap-6 overflow-x-auto whitespace-nowrap scrollbar-none">
           <span>PLATFORM: VITE/REACT18</span>
           <span>DB: INDEXEDDB</span>
@@ -1279,7 +1306,7 @@ function CityQRAppContent() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="bg-[#8B0000]/15 text-[#8B0000] dark:text-red-400 text-xs font-bold px-2.5 py-1 rounded-full">
-                    {language === 'ar' ? '3 جديدة' : '3 New'}
+                    {language === 'ar' ? `${mockNotifications.length} جديدة` : `${mockNotifications.length} New`}
                   </span>
                   <button
                     onClick={() => setIsNotificationsOpen(false)}
@@ -1289,27 +1316,63 @@ function CityQRAppContent() {
                   </button>
                 </div>
               </div>
-              <div className="space-y-3 overflow-y-auto pr-1 flex-1">
+              <div className="space-y-3 overflow-y-auto pr-1.5 flex-1 max-h-[360px] sm:max-h-[380px] scrollbar-thin scrollbar-thumb-[#D4AF37]/50 scrollbar-track-transparent">
                 {mockNotifications.map((n) => (
-                  <div key={n.id} className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 hover:border-[#D4AF37]/60 transition shadow-sm">
+                  <div
+                    key={n.id}
+                    className={`p-3.5 rounded-2xl border transition shadow-sm ${
+                      n.id === 0
+                        ? 'bg-gradient-to-br from-amber-500/15 via-[#D4AF37]/15 to-red-900/10 dark:from-amber-500/20 dark:via-[#D4AF37]/20 dark:to-red-900/15 border-2 border-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.25)]'
+                        : 'bg-zinc-50 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700/60 hover:border-[#D4AF37]/60'
+                    }`}
+                  >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="font-black text-xs sm:text-sm text-zinc-900 dark:text-zinc-100">
-                        {language === 'ar' ? n.titleAr : n.titleEn}
+                      <span className={`font-black text-xs sm:text-sm flex items-center gap-1.5 flex-wrap ${n.id === 0 ? 'text-[#8B0000] dark:text-amber-300' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                        {n.id === 0 ? (
+                          <>
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444] animate-ping inline-block shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                            <span>{language === 'ar' ? 'تطبيق' : 'Coming Soon:'}</span>
+                            <span className="inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-xl bg-[#0A0A0A] border-2 border-[#EF4444] shadow-[0_0_12px_rgba(239,68,68,0.5)]" dir="ltr">
+                              <span className="text-white font-black text-sm sm:text-base tracking-tight drop-shadow">City</span>
+                              <span className="bg-gradient-to-r from-[#EF4444] via-[#F97316] to-[#F59E0B] bg-clip-text text-transparent font-black text-sm sm:text-base tracking-tight">Deals</span>
+                              <span className="bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/50 font-black text-[9px] px-1.5 py-0.5 rounded-full shadow ml-1">EG</span>
+                            </span>
+                            <span>{language === 'ar' ? 'قريباً (تحت الإنشاء) 🚧' : '(Under Construction) 🚧'}</span>
+                          </>
+                        ) : (
+                          language === 'ar' ? n.titleAr : n.titleEn
+                        )}
                       </span>
                       <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono whitespace-nowrap">
                         {language === 'ar' ? n.timeAr : n.timeEn}
                       </span>
                     </div>
-                    <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                      {language === 'ar' ? n.descAr : n.descEn}
+                    <p className={`text-xs leading-relaxed ${n.id === 0 ? 'text-zinc-800 dark:text-zinc-200 font-bold mt-1.5' : 'text-zinc-600 dark:text-zinc-300'}`}>
+                      {n.id === 0 ? (
+                        language === 'ar' ? (
+                          <>
+                            انتظروا قريباً تطبيق <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-[#0A0A0A] border border-[#EF4444] shadow-sm my-0.5" dir="ltr"><span className="text-white font-black text-xs sm:text-sm">City</span><span className="bg-gradient-to-r from-[#EF4444] via-[#F97316] to-[#F59E0B] bg-clip-text text-transparent font-black text-xs sm:text-sm">Deals</span><span className="bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/50 font-black text-[8px] px-1.5 py-0.2 rounded-full ml-1">EG</span></span> (قريباً تحت الإنشاء 🚧) أكبر تطبيق للعروض والخصومات في جميع المجالات ✨
+                          </>
+                        ) : (
+                          <>
+                            Stay tuned for <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-[#0A0A0A] border border-[#EF4444] shadow-sm my-0.5" dir="ltr"><span className="text-white font-black text-xs sm:text-sm">City</span><span className="bg-gradient-to-r from-[#EF4444] via-[#F97316] to-[#F59E0B] bg-clip-text text-transparent font-black text-xs sm:text-sm">Deals</span><span className="bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/50 font-black text-[8px] px-1.5 py-0.2 rounded-full ml-1">EG</span></span> (Under Construction 🚧), the biggest app for offers and discounts across all fields! ✨
+                          </>
+                        )
+                      ) : (
+                        language === 'ar' ? n.descAr : n.descEn
+                      )}
                     </p>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">
+              <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs">
+                <span className="text-zinc-500 dark:text-zinc-400 font-bold text-[11px] sm:text-xs flex items-center gap-1.5 animate-pulse">
+                  <span className="text-[#D4AF37] text-sm font-black">↕️</span>
+                  <span>{language === 'ar' ? 'اسحب لأعلى وأسفل لرؤية باقي الإشعارات' : 'Scroll up/down for more'}</span>
+                </span>
                 <button
                   onClick={() => setIsNotificationsOpen(false)}
-                  className="px-5 py-2 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs hover:bg-amber-400 transition cursor-pointer shadow-md"
+                  className="px-5 py-2 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs hover:bg-amber-400 transition cursor-pointer shadow-md shrink-0"
                 >
                   {language === 'ar' ? 'إغلاق الإشعارات' : 'Close Notifications'}
                 </button>
