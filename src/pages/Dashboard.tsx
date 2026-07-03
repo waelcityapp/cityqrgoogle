@@ -23,6 +23,7 @@ import {
   ThumbsUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { smartMatchQRItem } from '../services/searchUtils';
 
 interface DashboardProps {
   onNavigate: (tab: string) => void;
@@ -51,10 +52,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onSelectScanne
 
   // Filter QRs
   const filteredQRs = qrcodes.filter(qr => {
-    const title = language === 'ar' ? qr.titleAr : qr.titleEn;
-    const desc = language === 'ar' ? qr.descriptionAr : qr.descriptionEn;
-    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          desc.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = smartMatchQRItem(qr, searchQuery);
     const matchesCategory = selectedCategory === 'all' || qr.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });

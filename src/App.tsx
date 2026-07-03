@@ -39,7 +39,14 @@ import {
   Twitter,
   Mail,
   User,
-  Bell
+  Bell,
+  Menu,
+  DollarSign,
+  PhoneCall,
+  Shield,
+  Activity,
+  MapPin,
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { WORLD_COUNTRIES, CountryProfile } from './services/international';
@@ -80,15 +87,16 @@ function CityQRAppContent() {
   const [isCopied, setIsCopied] = useState(false);
   const shareUrl = "https://cityqrgoogle.vercel.app/";
 
-  // Notifications Bell states & 3 mock notifications
+  // Notifications Bell & Quick Menu states
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isQuickMenuOpen, setIsQuickMenuOpen] = useState(false);
   const mockNotifications = [
     {
       id: 1,
       titleAr: 'عرض خاص جديد! 💥',
       titleEn: 'New Special Offer! 💥',
-      descAr: 'تم إضافة خصم 30% في مطعم قصر الرياض هذا الأسبوع.',
-      descEn: '30% discount added at Riyadh Palace Restaurant this week.',
+      descAr: 'تم إضافة خصم 30% في مطعم هافور (مدينة نصر) هذا الأسبوع.',
+      descEn: '30% discount added at Havur Restaurant (Nasr City) this week.',
       timeAr: 'منذ 10 دقائق',
       timeEn: '10 mins ago'
     },
@@ -111,6 +119,107 @@ function CityQRAppContent() {
       timeEn: 'Yesterday'
     }
   ];
+
+  // Admin Message Modal & Visitor Alert State
+  const [isAdminMessageModalOpen, setIsAdminMessageModalOpen] = useState(false);
+  const [isVisitorAlertOpen, setIsVisitorAlertOpen] = useState(false);
+  const [adminMessageText, setAdminMessageText] = useState('');
+  const [adminMessageSuccess, setAdminMessageSuccess] = useState<{ refNum: string; dateStr: string } | null>(null);
+  const [adminMessageError, setAdminMessageError] = useState('');
+  const [currentMessageRef, setCurrentMessageRef] = useState('');
+  const [currentMessageDate, setCurrentMessageDate] = useState('');
+  const [adminMessageView, setAdminMessageView] = useState<'new' | 'history'>('new');
+
+  const getMonthlySentMessagesCount = () => {
+    if (!currentUser) return 0;
+    try {
+      const stored = localStorage.getItem('cityqr_admin_messages');
+      if (!stored) return 0;
+      const msgs = JSON.parse(stored);
+      if (!Array.isArray(msgs)) return 0;
+      const now = new Date();
+      const curMonth = now.getMonth();
+      const curYear = now.getFullYear();
+      return msgs.filter((m: any) => {
+        if (m.senderId !== currentUser.id) return false;
+        const mDate = new Date(m.isoDate || m.date || 0);
+        return mDate.getMonth() === curMonth && mDate.getFullYear() === curYear;
+      }).length;
+    } catch (e) {
+      return 0;
+    }
+  };
+
+  const getMySentMessages = () => {
+    if (!currentUser) return [];
+    try {
+      const stored = localStorage.getItem('cityqr_admin_messages');
+      if (!stored) return [];
+      const msgs = JSON.parse(stored);
+      if (!Array.isArray(msgs)) return [];
+      return msgs.filter((m: any) => m.senderId === currentUser.id);
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const handleOpenAdminMessage = () => {
+    if (!currentUser || currentUser.role === 'visitor' || currentUser.id === 'guest-user') {
+      setIsVisitorAlertOpen(true);
+    } else {
+      const randomRef = 'REF-' + Math.floor(100000 + Math.random() * 900000);
+      const now = new Date();
+      const dateFormatted = language === 'ar' 
+        ? now.toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' - ' + now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+        : now.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' - ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      setCurrentMessageRef(randomRef);
+      setCurrentMessageDate(dateFormatted);
+      setAdminMessageText('');
+      setAdminMessageError('');
+      setAdminMessageSuccess(null);
+      setAdminMessageView('new');
+      setIsAdminMessageModalOpen(true);
+    }
+  };
+
+  const handleSendAdminMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminMessageText.trim()) {
+      setAdminMessageError(language === 'ar' ? 'يرجى كتابة نص الرسالة قبل الإرسال.' : 'Please enter message content before sending.');
+      return;
+    }
+    if (adminMessageText.length > 500) {
+      setAdminMessageError(language === 'ar' ? 'الرسالة تتجاوز الحد الأقصى (500 حرف).' : 'Message exceeds the maximum limit (500 characters).');
+      return;
+    }
+    const countThisMonth = getMonthlySentMessagesCount();
+    if (countThisMonth >= 4) {
+      setAdminMessageError(language === 'ar' ? 'لقد استنفدت الحد الأقصى المسموح به (4 رسائل في الشهر).' : 'You have reached the monthly limit (4 messages per month).');
+      return;
+    }
+
+    try {
+      const stored = localStorage.getItem('cityqr_admin_messages') || '[]';
+      const msgs = JSON.parse(stored);
+      const newMsg = {
+        id: currentMessageRef,
+        refNumber: currentMessageRef,
+        senderId: currentUser?.id || 'unknown',
+        senderName: currentUser?.name || currentUser?.email || 'User',
+        senderEmail: currentUser?.email || '',
+        date: currentMessageDate,
+        isoDate: new Date().toISOString(),
+        content: adminMessageText.trim(),
+        status: 'pending'
+      };
+      msgs.unshift(newMsg);
+      localStorage.setItem('cityqr_admin_messages', JSON.stringify(msgs));
+      setAdminMessageSuccess({ refNum: currentMessageRef, dateStr: currentMessageDate });
+      setAdminMessageError('');
+    } catch (err) {
+      setAdminMessageError(language === 'ar' ? 'حدث خطأ أثناء إرسال الرسالة.' : 'An error occurred while sending the message.');
+    }
+  };
 
   const getGeneralShareText = (includeUrl: boolean = true) => {
     const imgUrl = "https://cityqrgoogle.vercel.app/app_icon-512.png?v=4";
@@ -353,86 +462,72 @@ function CityQRAppContent() {
         )}
       </AnimatePresence>
 
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 space-y-3.5">
         
         {/* Custom CityQR Header Bar (Sticky on scroll as requested) */}
-        <header className="sticky top-2 z-40 min-h-[4.5rem] border border-zinc-200 dark:border-[#D4AF37]/20 flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg rounded-2xl mb-4 gap-3 py-3 sm:py-2.5 shadow-md dark:shadow-xl dark:shadow-black/60 transition-all duration-200">
+        <header className="sticky top-2 z-40 min-h-[5rem] sm:min-h-[5.5rem] border border-zinc-200 dark:border-[#D4AF37]/25 flex flex-col sm:flex-row items-center justify-between px-5 sm:px-8 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg rounded-2xl sm:rounded-3xl gap-3.5 py-3 sm:py-3.5 shadow-md dark:shadow-xl dark:shadow-black/60 transition-all duration-200">
           
-          {/* Logo Brand with Bold Typography theme elements and Version badge below */}
-          <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto gap-3 sm:gap-4 shrink-0">
-            <div className="flex flex-col items-start justify-center">
-              <div className="text-3xl sm:text-4xl font-black tracking-tighter flex items-center leading-none" dir="ltr">
-                <span className="text-[#8B0000]">{language === 'ar' ? 'City' : 'City'}</span>
-                <span className="text-[#D4AF37]">{language === 'ar' ? 'QR' : 'QR'}</span>
+          {/* Logo Brand with Bold Typography theme elements and Version badge */}
+          <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto gap-4 sm:gap-6 shrink-0">
+            <div className="flex items-center gap-3 relative py-1" dir="ltr">
+              <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                <div className="text-4xl sm:text-5xl md:text-6xl lg:text-[4.25rem] font-black tracking-tighter leading-none flex items-center drop-shadow-md py-0.5">
+                  <span className="text-[#8B0000] dark:text-red-500 drop-shadow-[0_2px_15px_rgba(139,0,0,0.4)]">City</span>
+                  <span className="text-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-amber-300 to-[#D4AF37] bg-clip-text text-transparent drop-shadow-[0_2px_15px_rgba(212,175,55,0.3)]">QR</span>
+                </div>
+                
+                {/* Glowing Version Pill Badge inline */}
+                <span className="px-3 py-1 sm:px-3.5 sm:py-1 bg-gradient-to-r from-[#D4AF37]/15 via-amber-500/15 to-[#D4AF37]/15 dark:from-[#D4AF37]/20 dark:via-amber-500/20 dark:to-[#D4AF37]/20 text-[#D4AF37] dark:text-amber-300 text-[11px] sm:text-xs font-black rounded-full border border-[#D4AF37]/40 shadow-[0_0_15px_rgba(212,175,55,0.25)] tracking-widest uppercase flex items-center gap-1.5 self-center animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                  V1.0 BETA
+                </span>
               </div>
-              <span className="mt-1 px-2 py-0.5 bg-[#D4AF37]/10 text-[#D4AF37] text-[8.5px] font-extrabold rounded border border-[#D4AF37]/30 tracking-widest uppercase">V1.0.0-BETA</span>
+
+              {/* ☀️ Gentle solar glow under the app name CityQR */}
+              <div className="absolute -bottom-2 left-4 w-48 h-8 bg-gradient-to-t from-amber-400/35 via-[#D4AF37]/30 to-transparent rounded-full blur-xl pointer-events-none animate-pulse" />
             </div>
 
-            {/* Share App & Notifications Buttons next to the app name */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* 4 Header Action Buttons (Icon-Only Toolbar for maximum logo space) */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 py-0.5">
+              {/* 1. Share App */}
               <button
                 onClick={() => setIsShareModalOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 hover:bg-[#D4AF37]/15 dark:hover:bg-[#D4AF37]/25 text-xs text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer font-bold shadow-sm shrink-0"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 hover:bg-[#D4AF37]/15 dark:hover:bg-[#D4AF37]/25 text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer shadow-sm shrink-0 flex items-center justify-center group"
                 title={language === 'ar' ? 'مشاركة التطبيق عبر وسائل التواصل الاجتماعي' : 'Share app via social media'}
               >
-                <Share2 className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span className="text-[11px] font-bold">{language === 'ar' ? 'مشاركة' : 'Share'}</span>
+                <Share2 className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
               </button>
 
-              {/* Notifications Bell Button */}
+              {/* 2. Contact App */}
+              <button
+                onClick={handleOpenAdminMessage}
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37]/20 via-amber-500/20 to-[#D4AF37]/20 hover:from-[#D4AF37]/30 hover:to-amber-500/30 text-amber-300 dark:text-amber-300 transition duration-300 cursor-pointer shadow-[0_0_15px_rgba(212,175,55,0.25)] shrink-0 flex items-center justify-center animate-pulse group"
+                title={language === 'ar' ? 'مراسلة التطبيق (استفسار / مقترح / شكوى)' : 'Contact App (Inquiry / Suggestion / Complaint)'}
+              >
+                <Mail className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
+              </button>
+
+              {/* 3. Notifications Bell */}
               <div className="relative">
                 <button
                   onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                  className="flex items-center justify-center p-1.5 sm:px-2 sm:py-1.5 rounded-xl border border-[#8B0000]/40 bg-[#8B0000]/10 hover:bg-[#8B0000]/20 text-xs text-[#8B0000] dark:text-red-400 transition duration-200 cursor-pointer font-bold shadow-sm shrink-0 relative gap-1"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-[#8B0000]/40 bg-[#8B0000]/10 hover:bg-[#8B0000]/20 text-[#8B0000] dark:text-red-400 transition duration-200 cursor-pointer shadow-sm shrink-0 relative flex items-center justify-center group"
                   title={language === 'ar' ? 'الإشعارات والتنبيهات' : 'Notifications'}
                 >
-                  <Bell className="w-4 h-4 text-[#8B0000] dark:text-red-400 animate-bounce" />
-                  <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 shadow">3</span>
+                  <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#8B0000] dark:text-red-400 animate-bounce" />
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 shadow">3</span>
                 </button>
+              </div>
 
-                {/* Notifications Dropdown Modal */}
-                <AnimatePresence>
-                  {isNotificationsOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                        className="absolute left-0 sm:right-0 sm:left-auto mt-2 w-72 sm:w-80 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-4 z-50 text-start"
-                      >
-                        <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800 mb-3">
-                          <div className="flex items-center gap-2">
-                            <Bell className="w-4 h-4 text-[#8B0000] dark:text-[#D4AF37]" />
-                            <span className="font-extrabold text-xs text-zinc-900 dark:text-white">
-                              {language === 'ar' ? 'التنبيهات والإشعارات' : 'Notifications'}
-                            </span>
-                          </div>
-                          <span className="bg-[#8B0000]/10 text-[#8B0000] dark:text-red-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                            {language === 'ar' ? '3 جديدة' : '3 New'}
-                          </span>
-                        </div>
-                        <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                          {mockNotifications.map((n) => (
-                            <div key={n.id} className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-700/50 hover:border-[#D4AF37]/50 transition">
-                              <div className="flex items-center justify-between gap-2 mb-1">
-                                <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">
-                                  {language === 'ar' ? n.titleAr : n.titleEn}
-                                </span>
-                                <span className="text-[9px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
-                                  {language === 'ar' ? n.timeAr : n.timeEn}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-zinc-600 dark:text-zinc-300 leading-snug">
-                                {language === 'ar' ? n.descAr : n.descEn}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
+              {/* 4. Menu Button */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsQuickMenuOpen(!isQuickMenuOpen)}
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-amber-500/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] transition duration-200 cursor-pointer shadow-sm shrink-0 flex items-center justify-center group"
+                  title={language === 'ar' ? 'القائمة السريعة: مصر، العملة، الطوارئ والواجهة' : 'Quick Menu: Country, Currency, Emergency & Interface'}
+                >
+                  <Menu className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
+                </button>
               </div>
             </div>
           </div>
@@ -460,15 +555,14 @@ function CityQRAppContent() {
               <span>{isOnline ? t.onlineMode : t.offlineMode}</span>
             </div>
 
-            {/* International Country & Currency Selector Pill */}
+            {/* International Country & Currency Selector Pill (Flag & Currency only) */}
             <button
               onClick={() => setIsCountryModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-[#8B0000]/10 dark:from-[#D4AF37]/15 dark:to-[#8B0000]/15 text-xs text-black dark:text-white hover:border-[#D4AF37] hover:scale-105 transition duration-150 cursor-pointer font-bold shadow-sm shrink-0 whitespace-nowrap"
               title={language === 'ar' ? 'تغيير الدولة والعملة وأرقام الطوارئ' : 'Change Country, Currency & Emergency Info'}
             >
-              <span className="text-base leading-none">{userCountry?.flag || '🌍'}</span>
-              <span className="hidden md:inline text-[11px] font-black">{language === 'ar' ? userCountry?.nameAr : userCountry?.nameEn}</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#D4AF37] text-black font-extrabold">{userCountry?.currencyCode || 'SAR'} ({userCountry?.currencySymbol || 'ر.س'})</span>
+              <span className="text-base leading-none">{userCountry?.flag || '🇪🇬'}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#D4AF37] text-black font-extrabold">{userCountry?.currencyCode || 'EGP'}</span>
             </button>
 
             {/* Language switch */}
@@ -511,7 +605,7 @@ function CityQRAppContent() {
             { id: 'landing', label: t.visitorPortal, icon: Compass },
             { id: 'scanner', label: t.scanner, icon: QrCode },
             { id: 'emergency', label: t.emergency, icon: ShieldAlert },
-            { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي وصلاحياتي' : 'My Account') : (language === 'ar' ? 'دخول / حساب جديد' : 'Sign In / Up'), icon: User, hasNotification: true },
+            { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'My Account') : (language === 'ar' ? 'إنشاء حساب' : 'Create Account'), icon: User, hasNotification: !currentUser, isAvatar: !!currentUser },
           ].map((item) => {
             const Icon = item.icon;
             const isSelected = activeTab === item.id;
@@ -526,7 +620,16 @@ function CityQRAppContent() {
                 }`}
               >
                 <div className="relative flex items-center">
-                  <Icon className={`w-4 h-4 ${isSelected ? 'text-[#8B0000]' : 'text-zinc-500'}`} />
+                  {item.isAvatar ? (
+                    <img
+                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser?.email || currentUser?.fullName || 'user')}`}
+                      alt="User Avatar"
+                      className="w-5 h-5 rounded-full border border-[#D4AF37] object-cover bg-amber-500/10 shadow-sm"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <Icon className={`w-4 h-4 ${isSelected ? 'text-[#8B0000]' : 'text-zinc-500'}`} />
+                  )}
                   {item.hasNotification && (
                     <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 animate-pulse shadow">
                       1
@@ -540,7 +643,7 @@ function CityQRAppContent() {
         </nav>
 
         {/* Active Content Module with transitions */}
-        <main className="py-2 min-h-[60vh]">
+        <main className="py-1 min-h-[60vh]">
           <AnimatePresence mode="wait">
             {activeTab === 'landing' && (
               <VisitorLanding 
@@ -609,7 +712,7 @@ function CityQRAppContent() {
           { id: 'landing', label: t.visitorPortal, icon: Compass },
           { id: 'scanner', label: t.scanner, icon: QrCode },
           { id: 'emergency', label: t.emergency, icon: ShieldAlert },
-          { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'Account') : (language === 'ar' ? 'دخول / تسجيل' : 'Sign In'), icon: User, hasNotification: true },
+          { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'My Account') : (language === 'ar' ? 'إنشاء حساب' : 'Create Account'), icon: User, hasNotification: !currentUser, isAvatar: !!currentUser },
         ].map((item) => {
           const Icon = item.icon;
           const isSelected = activeTab === item.id;
@@ -631,7 +734,16 @@ function CityQRAppContent() {
                   ? 'bg-[#8B0000]/15 dark:bg-[#D4AF37]/15 scale-110 shadow-sm' 
                   : 'hover:bg-zinc-100 dark:hover:bg-zinc-900'
               }`}>
-                <Icon className={`w-5 h-5 ${isSelected ? 'text-[#8B0000] dark:text-[#D4AF37]' : 'text-zinc-500'}`} />
+                {item.isAvatar ? (
+                  <img
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser?.email || currentUser?.fullName || 'user')}`}
+                    alt="User Avatar"
+                    className="w-6 h-6 rounded-full border border-[#D4AF37] object-cover bg-amber-500/10 shadow-sm"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <Icon className={`w-5 h-5 ${isSelected ? 'text-[#8B0000] dark:text-[#D4AF37]' : 'text-zinc-500'}`} />
+                )}
                 {item.hasNotification && (
                   <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 animate-pulse shadow">
                     1
@@ -1084,6 +1196,547 @@ function CityQRAppContent() {
                   {language === 'ar' ? 'إغلاق' : 'Close'}
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 🔒 Visitor Alert Modal for Admin Messaging */}
+      <AnimatePresence>
+        {isVisitorAlertOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setIsVisitorAlertOpen(false)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-gradient-to-b from-zinc-900 to-zinc-950 border-2 border-[#D4AF37]/80 rounded-3xl p-6 shadow-[0_0_40px_rgba(212,175,55,0.2)] text-center space-y-5"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-[#D4AF37]/15 border border-[#D4AF37]/40 flex items-center justify-center mx-auto shadow-inner">
+                <Lock className="w-8 h-8 text-[#D4AF37] animate-pulse" />
+              </div>
+
+              <div className="space-y-2">
+                <span className="inline-block px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono font-bold">
+                  💡 {language === 'ar' ? 'تنبيه الزائر - مراسلة التطبيق' : 'Visitor Alert - Contact App Feature'}
+                </span>
+                <h3 className="text-lg font-black text-white">
+                  {language === 'ar' 
+                    ? 'خاصية مراسلة التطبيق'
+                    : 'Contact App Feature'}
+                </h3>
+                <p className="text-xs text-zinc-300 leading-relaxed px-2">
+                  {language === 'ar'
+                    ? 'أنت تتصفح حالياً كـ (زائر). لتتمكن من إرسال رسائل أو استفسارات أو مقترحات مباشرة عبر (مراسلة التطبيق) والحصول على رقم مرجعي وتاريخ لمتابعة الرد، يرجى تسجيل الدخول بحساب مستخدم مسجل مجاناً.'
+                    : 'You are currently browsing as a Visitor. To send messages, inquiries, or suggestions directly via Contact App and receive a reference tracking number, please sign in to a free User Account.'}
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsVisitorAlertOpen(false);
+                    setActiveTab('account');
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-500 hover:from-amber-500 hover:to-[#D4AF37] text-black font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <User className="w-4 h-4" />
+                  <span>{language === 'ar' ? 'تسجيل دخول كمستخدم الآن' : 'Login as User Now'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsVisitorAlertOpen(false)}
+                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs transition cursor-pointer shrink-0"
+                >
+                  {language === 'ar' ? 'متابعة كزائر' : 'Continue as Visitor'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 🔔 Notifications Center Modal (Root level for perfect viewport centering) */}
+      <AnimatePresence>
+        {isNotificationsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setIsNotificationsOpen(false)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-white dark:bg-zinc-900 border-2 border-[#D4AF37]/80 rounded-3xl shadow-[0_0_40px_rgba(212,175,55,0.2)] p-5 z-50 text-start overflow-hidden max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-[#8B0000]/10 text-[#8B0000] dark:text-[#D4AF37]">
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <span className="font-black text-sm sm:text-base text-zinc-900 dark:text-white">
+                    {language === 'ar' ? 'التنبيهات والإشعارات' : 'Notifications'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-[#8B0000]/15 text-[#8B0000] dark:text-red-400 text-xs font-bold px-2.5 py-1 rounded-full">
+                    {language === 'ar' ? '3 جديدة' : '3 New'}
+                  </span>
+                  <button
+                    onClick={() => setIsNotificationsOpen(false)}
+                    className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-zinc-800 transition cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-3 overflow-y-auto pr-1 flex-1">
+                {mockNotifications.map((n) => (
+                  <div key={n.id} className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/60 hover:border-[#D4AF37]/60 transition shadow-sm">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="font-black text-xs sm:text-sm text-zinc-900 dark:text-zinc-100">
+                        {language === 'ar' ? n.titleAr : n.titleEn}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono whitespace-nowrap">
+                        {language === 'ar' ? n.timeAr : n.timeEn}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                      {language === 'ar' ? n.descAr : n.descEn}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">
+                <button
+                  onClick={() => setIsNotificationsOpen(false)}
+                  className="px-5 py-2 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs hover:bg-amber-400 transition cursor-pointer shadow-md"
+                >
+                  {language === 'ar' ? 'إغلاق الإشعارات' : 'Close Notifications'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ⚡ Quick Access Center Modal (Root level for perfect viewport centering) */}
+      <AnimatePresence>
+        {isQuickMenuOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setIsQuickMenuOpen(false)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-white dark:bg-zinc-900 border-2 border-[#D4AF37]/80 rounded-3xl shadow-[0_0_40px_rgba(212,175,55,0.2)] p-5 z-50 text-start space-y-4 overflow-y-auto max-h-[85vh] flex flex-col"
+            >
+              {/* Title Bar */}
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-[#D4AF37]/15 text-[#D4AF37]">
+                    <Activity className="w-4 h-4" />
+                  </div>
+                  <span className="font-black text-xs text-zinc-900 dark:text-white">
+                    {language === 'ar' ? 'القائمة السريعة: الدولة والطوارئ' : 'Quick Access: Country & Emergency'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setIsQuickMenuOpen(false)}
+                  className="text-zinc-400 hover:text-white p-1 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* 1. Country Selection (Egypt & Others) */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-[#D4AF37]" />
+                  <span>{language === 'ar' ? 'الدولة المختارة (جمهورية مصر)' : 'Country Selection'}</span>
+                </label>
+                <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{userCountry?.flag || '🇪🇬'}</span>
+                    <div>
+                      <span className="block font-extrabold text-xs text-zinc-900 dark:text-white">
+                        {language === 'ar' ? userCountry?.nameAr || 'جمهورية مصر العربية' : userCountry?.nameEn || 'Egypt'}
+                      </span>
+                      <span className="block text-[10px] text-[#D4AF37] font-mono">
+                        {userCountry?.currencyCode || 'EGP'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        const eg = WORLD_COUNTRIES.find(c => c.code === 'EG');
+                        if (eg) setUserCountry(eg);
+                      }}
+                      className="px-2 py-1 rounded-lg bg-[#D4AF37]/15 hover:bg-[#D4AF37]/30 text-[#D4AF37] text-[10px] font-bold transition cursor-pointer"
+                    >
+                      {language === 'ar' ? 'مصر 🇪🇬' : 'Egypt 🇪🇬'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsQuickMenuOpen(false);
+                        setIsCountryModalOpen(true);
+                      }}
+                      className="px-2 py-1 rounded-lg bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-800 dark:text-white text-[10px] font-bold transition cursor-pointer"
+                    >
+                      {language === 'ar' ? 'تغيير' : 'Change'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Change Currency to Dollar & Currencies */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+                  <DollarSign className="w-3 h-3 text-green-500" />
+                  <span>{language === 'ar' ? 'تغيير العملة السريعة' : 'Quick Currency Switch'}</span>
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    onClick={() => {
+                      const us = WORLD_COUNTRIES.find(c => c.code === 'US');
+                      if (us) setUserCountry(us);
+                    }}
+                    className={`p-2 rounded-xl border text-center transition cursor-pointer ${
+                      userCountry?.currencyCode === 'USD'
+                        ? 'bg-green-500/20 border-green-500 text-green-400 font-bold'
+                        : 'bg-zinc-50 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-700/50 hover:border-green-500/50 text-xs text-zinc-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    <span className="block text-xs font-black text-green-500">$ USD</span>
+                    <span className="text-[9px] text-zinc-400">{language === 'ar' ? 'الدولار' : 'Dollar'}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const eg = WORLD_COUNTRIES.find(c => c.code === 'EG');
+                      if (eg) setUserCountry(eg);
+                    }}
+                    className={`p-2 rounded-xl border text-center transition cursor-pointer ${
+                      userCountry?.currencyCode === 'EGP'
+                        ? 'bg-[#D4AF37]/20 border-[#D4AF37] text-[#D4AF37] font-bold'
+                        : 'bg-zinc-50 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-700/50 hover:border-[#D4AF37]/50 text-xs text-zinc-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    <span className="block text-xs font-black text-[#D4AF37]">ج.م EGP</span>
+                    <span className="text-[9px] text-zinc-400">{language === 'ar' ? 'الجنيه' : 'Pound'}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const sa = WORLD_COUNTRIES.find(c => c.code === 'SA');
+                      if (sa) setUserCountry(sa);
+                    }}
+                    className={`p-2 rounded-xl border text-center transition cursor-pointer ${
+                      userCountry?.currencyCode === 'SAR'
+                        ? 'bg-[#8B0000]/20 border-[#8B0000] text-red-400 font-bold'
+                        : 'bg-zinc-50 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-700/50 hover:border-[#8B0000]/50 text-xs text-zinc-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    <span className="block text-xs font-black text-red-400">ر.س SAR</span>
+                    <span className="text-[9px] text-zinc-400">{language === 'ar' ? 'الريال' : 'Riyal'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. Police & Ambulance Emergency */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+                  <Shield className="w-3 h-3 text-red-500" />
+                  <span>{language === 'ar' ? 'أرقام الشرطة والإسعاف (طوارئ سريعة)' : 'Police & Ambulance (Emergency)'}</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href={`tel:${userCountry?.policeNumber || '122'}`}
+                    className="p-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 flex items-center justify-between text-red-400 font-bold transition group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="w-4 h-4 text-red-500 animate-pulse" />
+                      <span className="text-xs">{language === 'ar' ? 'الشرطة' : 'Police'}</span>
+                    </div>
+                    <span className="font-mono text-sm font-black bg-red-500/20 px-2 py-0.5 rounded-md text-white group-hover:scale-105 transition">
+                      {userCountry?.policeNumber || '122'}
+                    </span>
+                  </a>
+                  <a
+                    href={`tel:${userCountry?.ambulanceNumber || '123'}`}
+                    className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 flex items-center justify-between text-rose-400 font-bold transition group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <PhoneCall className="w-4 h-4 text-rose-500 animate-pulse" />
+                      <span className="text-xs">{language === 'ar' ? 'الإسعاف' : 'Ambulance'}</span>
+                    </div>
+                    <span className="font-mono text-sm font-black bg-rose-500/20 px-2 py-0.5 rounded-md text-white group-hover:scale-105 transition">
+                      {userCountry?.ambulanceNumber || '123'}
+                    </span>
+                  </a>
+                </div>
+              </div>
+
+              {/* 4. Active Interface (Language & Theme) */}
+              <div className="space-y-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+                  <Tv className="w-3 h-3 text-[#D4AF37]" />
+                  <span>{language === 'ar' ? 'الواجهة النشطة (اللغة والمظهر)' : 'Active Interface (Lang & Theme)'}</span>
+                </label>
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
+                    className="flex-1 py-2 px-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-bold text-center flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <span>{language === 'ar' ? 'English (EN)' : 'العربية (AR)'}</span>
+                  </button>
+                  <button
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')}
+                    className="flex-1 py-2 px-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-bold text-center flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  >
+                    {theme === 'dark' ? <Moon className="w-3.5 h-3.5 text-[#D4AF37]" /> : <Sun className="w-3.5 h-3.5 text-amber-500" />}
+                    <span>{theme === 'dark' ? (language === 'ar' ? 'ليلي Dark' : 'Dark') : (language === 'ar' ? 'نهاري Light' : 'Light')}</span>
+                  </button>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">
+                <button
+                  onClick={() => setIsQuickMenuOpen(false)}
+                  className="px-5 py-2 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs hover:bg-amber-400 transition cursor-pointer shadow-md"
+                >
+                  {language === 'ar' ? 'إغلاق القائمة' : 'Close Menu'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ✉️ Send Message to App Admin Modal */}
+      <AnimatePresence>
+        {isAdminMessageModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setIsAdminMessageModalOpen(false)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg bg-gradient-to-b from-zinc-900 to-zinc-950 border-2 border-[#D4AF37]/80 rounded-3xl p-6 shadow-[0_0_40px_rgba(212,175,55,0.2)] text-start space-y-4 max-h-[90vh] overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                    <Mail className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-white">
+                      {language === 'ar' ? 'يمكنك إرسال رسالة عبر (مراسلة التطبيق)' : 'Send Message via Contact App'}
+                    </h3>
+                    <span className="text-[11px] text-zinc-400 block font-normal">
+                      {language === 'ar' ? 'استفسار، مقترح، شكوى أو طلب دعم فني مباشر' : 'Direct inquiry, suggestion, complaint or tech support'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAdminMessageModalOpen(false)}
+                  className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* View switch: New Message vs My Messages History */}
+              <div className="flex border border-zinc-800 rounded-xl p-1 bg-zinc-950/80">
+                <button
+                  type="button"
+                  onClick={() => setAdminMessageView('new')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    adminMessageView === 'new'
+                      ? 'bg-gradient-to-r from-[#D4AF37] to-amber-500 text-black shadow'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{language === 'ar' ? 'إرسال رسالة جديدة' : 'New Message'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdminMessageView('history')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    adminMessageView === 'history'
+                      ? 'bg-gradient-to-r from-[#D4AF37] to-amber-500 text-black shadow'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>{language === 'ar' ? `سجل رسائلي (${getMySentMessages().length})` : `My Messages (${getMySentMessages().length})`}</span>
+                </button>
+              </div>
+
+              {adminMessageView === 'history' ? (
+                <div className="space-y-3 py-2">
+                  {getMySentMessages().length === 0 ? (
+                    <div className="py-12 text-center text-zinc-500 text-xs font-mono space-y-2 border border-dashed border-zinc-800 rounded-2xl">
+                      <MessageCircle className="w-8 h-8 mx-auto opacity-40" />
+                      <p>{language === 'ar' ? 'لم تقم بإرسال أي رسائل عبر (مراسلة التطبيق) بعد.' : 'You have not sent any messages via Contact App yet.'}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+                      {getMySentMessages().map((msg: any) => (
+                        <div key={msg.id} className="p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 space-y-2">
+                          <div className="flex items-center justify-between pb-1.5 border-b border-zinc-800 font-mono text-xs">
+                            <span className="text-amber-400 font-bold">{msg.refNumber}</span>
+                            <span className="text-zinc-400 text-[10px]">{msg.date}</span>
+                          </div>
+                          <p className="text-xs text-zinc-200 leading-relaxed font-sans">{msg.content}</p>
+                          <div className="flex items-center justify-between pt-1 text-[10px]">
+                            <span className="text-zinc-400">{language === 'ar' ? 'الحالة:' : 'Status:'}</span>
+                            <span className="bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
+                              {language === 'ar' ? '⏳ قيد المراجعة من الإدارة' : '⏳ Under Review by Admin'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setAdminMessageView('new')}
+                      className="px-5 py-2 rounded-xl bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/30 text-xs font-bold transition cursor-pointer"
+                    >
+                      {language === 'ar' ? '+ كتابة رسالة جديدة' : '+ Compose New Message'}
+                    </button>
+                  </div>
+                </div>
+              ) : adminMessageSuccess ? (
+                <div className="py-6 text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-green-500/20 border-2 border-green-500 text-green-400 flex items-center justify-center mx-auto shadow-lg">
+                    <CheckCircle className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-lg font-black text-white">
+                      {language === 'ar' ? 'تم إرسال رسالتك بنجاح!' : 'Message Sent Successfully!'}
+                    </h4>
+                    <p className="text-xs text-zinc-300 max-w-sm mx-auto leading-relaxed">
+                      {language === 'ar' 
+                        ? 'سيقوم فريق إدارة التطبيق بمراجعة رسالتك والرد عليك قريباً. يرجى الاحتفاظ بالرقم المرجعي وتاريخ الرسالة للمتابعة.'
+                        : 'Our administration team will review your message and reply soon. Please keep your reference number for tracking.'}
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3.5 max-w-sm mx-auto text-start space-y-2 font-mono text-xs">
+                    <div className="flex justify-between items-center pb-1.5 border-b border-zinc-800">
+                      <span className="text-zinc-400 font-sans font-bold">{language === 'ar' ? '📌 الرقم المرجعي:' : '📌 Reference No:'}</span>
+                      <span className="text-amber-400 font-bold">{adminMessageSuccess.refNum}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-0.5">
+                      <span className="text-zinc-400 font-sans font-bold">{language === 'ar' ? '🕒 تاريخ الرسالة:' : '🕒 Date & Time:'}</span>
+                      <span className="text-zinc-300 text-[11px]">{adminMessageSuccess.dateStr}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setAdminMessageView('history')}
+                      className="px-5 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs transition cursor-pointer"
+                    >
+                      {language === 'ar' ? '📋 عرض سجل رسائلي' : '📋 View My Messages'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAdminMessageModalOpen(false)}
+                      className="px-6 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-amber-400 text-black font-black text-xs transition shadow-lg cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{language === 'ar' ? 'حسناً، إغلاق' : 'OK, Close'}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSendAdminMessage} className="space-y-3.5">
+                  {/* Reference Number & Timestamp Display */}
+                  <div className="bg-zinc-900/90 border border-amber-500/30 rounded-2xl p-3 space-y-2 font-mono text-xs shadow-inner">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-zinc-800">
+                      <span className="text-zinc-300 font-sans font-bold flex items-center gap-1">
+                        <span>📌 {language === 'ar' ? 'الرقم المرجعي للرسالة:' : 'Reference Number:'}</span>
+                      </span>
+                      <span className="text-amber-400 font-extrabold text-sm tracking-wider bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">{currentMessageRef}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-0.5">
+                      <span className="text-zinc-300 font-sans font-bold flex items-center gap-1">
+                        <span>🕒 {language === 'ar' ? 'تاريخ الرسالة:' : 'Message Date:'}</span>
+                      </span>
+                      <span className="text-zinc-200 text-[11px]">{currentMessageDate}</span>
+                    </div>
+                  </div>
+
+                  {/* Explanatory Note exactly as requested */}
+                  <p className="text-[11px] text-zinc-300 bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/80 leading-normal">
+                    💡 {language === 'ar' 
+                      ? 'حتى تستطيع إدارة التطبيق مراجعة تاريخ الرسالة من المرسل والرقم المرجعي للرسالة ومتابعة الرد الدقيق، يرجى الاحتفاظ بهذه البيانات.'
+                      : 'So that the app administration can review the message date from the sender and the message reference number for accurate follow-up.'}
+                  </p>
+
+                  {/* Monthly Limit Badge */}
+                  <div className="flex items-center justify-between bg-[#8B0000]/15 border border-[#8B0000]/40 rounded-xl px-3 py-2 text-xs text-red-300 font-bold">
+                    <span>⚠️ {language === 'ar' ? 'مسموح لك بأربع رسائل في الشهر فقط' : 'You are allowed only 4 messages per month'}</span>
+                    <span className="font-mono bg-red-500/30 px-2 py-0.5 rounded text-[11px] text-white">
+                      {language === 'ar' ? `${getMonthlySentMessagesCount()} من 4` : `${getMonthlySentMessagesCount()} of 4`}
+                    </span>
+                  </div>
+
+                  {/* Error display if any */}
+                  {adminMessageError && (
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold flex items-center gap-2">
+                      <Shield className="w-4 h-4 shrink-0" />
+                      <span>{adminMessageError}</span>
+                    </div>
+                  )}
+
+                  {/* Message Input Textarea (Max 500 characters) */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-300 flex items-center justify-between">
+                      <span>{language === 'ar' ? 'نص الرسالة (فيما لا يزيد عن 500 حرف):' : 'Message content (max 500 chars):'}</span>
+                      <span className={`font-mono text-[11px] ${adminMessageText.length > 450 ? 'text-rose-400 font-bold' : 'text-zinc-400'}`}>
+                        {adminMessageText.length} / 500
+                      </span>
+                    </label>
+                    <textarea
+                      value={adminMessageText}
+                      onChange={(e) => setAdminMessageText(e.target.value)}
+                      maxLength={500}
+                      rows={4}
+                      placeholder={language === 'ar' ? 'اكتب رسالتك هنا بوضوح (استفسار، شكوى، مقترح، أو طلب مساعدة)...' : 'Write your message clearly here (inquiry, complaint, suggestion, or assistance request)...'}
+                      className="w-full rounded-2xl border border-zinc-700 bg-zinc-950 p-3.5 text-white text-xs leading-relaxed outline-none focus:border-amber-500 transition resize-none placeholder-zinc-500 font-sans"
+                    />
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex items-center justify-end gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsAdminMessageModalOpen(false)}
+                      className="px-5 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs transition cursor-pointer"
+                    >
+                      {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={getMonthlySentMessagesCount() >= 4}
+                      className={`px-6 py-2.5 rounded-xl font-black text-xs transition shadow-lg flex items-center gap-2 ${
+                        getMonthlySentMessagesCount() >= 4
+                          ? 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-[#D4AF37] to-amber-500 hover:from-amber-500 hover:to-[#D4AF37] text-black cursor-pointer'
+                      }`}
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>{language === 'ar' ? 'إرسال الرسالة الآن' : 'Send Message Now'}</span>
+                    </button>
+                  </div>
+                </form>
+              )}
             </motion.div>
           </div>
         )}

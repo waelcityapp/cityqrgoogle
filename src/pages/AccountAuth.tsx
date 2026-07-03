@@ -329,7 +329,7 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                   className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:brightness-110 text-zinc-950 font-black text-xs shadow-lg transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <LayoutDashboard className="w-4 h-4" />
-                  <span>{language === 'ar' ? 'دخول لوحة التحكم التجاري' : 'Open Merchant Dashboard'}</span>
+                  <span>{language === 'ar' ? 'دخول بوابة التاجر والشركاء (لوحة التحكم)' : 'Open Merchant & Partner Portal'}</span>
                 </button>
               </div>
             </div>

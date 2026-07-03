@@ -35,10 +35,10 @@ const INITIAL_QR_CODES = [
     qrUrl: 'https://cityqr.local/merchant/havur-restaurant',
     targetUrl: 'https://example.com/havur-menu',
     location: {
-      lat: 24.7136,
-      lng: 46.6753,
-      addressAr: 'حي السليمانية، الرياض',
-      addressEn: 'Sulaimaniyah, Riyadh'
+      lat: 30.0561,
+      lng: 31.3301,
+      addressAr: 'القاهرة - مدينة نصر',
+      addressEn: 'Cairo - Nasr City'
     },
     totalScans: 342,
     createdAt: new Date().toISOString(),
@@ -63,10 +63,10 @@ const INITIAL_QR_CODES = [
     qrUrl: 'https://cityqr.local/merchant/fitness-max',
     targetUrl: 'https://example.com/fitness-max-membership',
     location: {
-      lat: 24.7236,
-      lng: 46.6853,
-      addressAr: 'طريق الملك عبد العزيز، الرياض',
-      addressEn: 'King Abdulaziz Road, Riyadh'
+      lat: 30.0511,
+      lng: 31.2001,
+      addressAr: 'الجيزة - المهندسين',
+      addressEn: 'Giza - Mohandessin'
     },
     totalScans: 1205,
     createdAt: new Date().toISOString(),
@@ -91,10 +91,10 @@ const INITIAL_QR_CODES = [
     qrUrl: 'https://cityqr.local/merchant/alfa-lab',
     targetUrl: 'https://example.com/alfa-lab-packages',
     location: {
-      lat: 24.7336,
-      lng: 46.6953,
-      addressAr: 'حي الورود، الرياض',
-      addressEn: 'Al Wurud, Riyadh'
+      lat: 31.2156,
+      lng: 29.9553,
+      addressAr: 'الإسكندرية - سموحة',
+      addressEn: 'Alexandria - Smouha'
     },
     totalScans: 89,
     createdAt: new Date().toISOString(),
@@ -128,7 +128,7 @@ const DEFAULT_EMERGENCY_CONFIG = {
 
 // Initialize or Migrate Local Storage Fallback if needed
 const storedQRs = localStorage.getItem(LOCAL_STORAGE_KEY_QR_CODES);
-if (!storedQRs || !storedQRs.includes('مطعم هافور') || !storedQRs.includes('imageUrl') || !storedQRs.includes('favoritesCount')) {
+if (!storedQRs || !storedQRs.includes('مطعم هافور') || !storedQRs.includes('imageUrl') || !storedQRs.includes('favoritesCount') || !storedQRs.includes('مدينة نصر')) {
   localStorage.setItem(LOCAL_STORAGE_KEY_QR_CODES, JSON.stringify(INITIAL_QR_CODES));
 }
 if (!localStorage.getItem(LOCAL_STORAGE_KEY_EMERGENCY)) {

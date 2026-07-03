@@ -313,7 +313,7 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
                     name="addressAr"
                     value={formData.addressAr}
                     onChange={handleInputChange}
-                    placeholder="مثال: حي العليا، الرياض"
+                    placeholder="مثال: القاهرة - مدينة نصر"
                     className="w-full rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-white outline-none focus:border-[#D4AF37]"
                   />
                 </div>
@@ -325,7 +325,7 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
                     name="addressEn"
                     value={formData.addressEn}
                     onChange={handleInputChange}
-                    placeholder="e.g. Olaya District, Riyadh"
+                    placeholder="e.g. Cairo - Nasr City"
                     className="w-full rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-white outline-none focus:border-[#D4AF37]"
                   />
                 </div>
@@ -340,7 +340,7 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
                     name="lat"
                     value={formData.lat}
                     onChange={handleInputChange}
-                    placeholder="24.7136"
+                    placeholder="30.0561"
                     className="w-full rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-white outline-none focus:border-[#D4AF37] font-mono"
                   />
                 </div>
@@ -353,7 +353,7 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
                     name="lng"
                     value={formData.lng}
                     onChange={handleInputChange}
-                    placeholder="46.6753"
+                    placeholder="31.3301"
                     className="w-full rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-white outline-none focus:border-[#D4AF37] font-mono"
                   />
                 </div>
