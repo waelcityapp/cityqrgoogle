@@ -51,7 +51,24 @@ const INITIAL_QR_CODES = [
     favoritedBy: ['user-demo-1', 'user-demo-2'],
     averageRating: 4.8,
     ratingsCount: 19,
-    userRatings: { 'user-demo-1': 5, 'user-demo-2': 5, 'user-demo-3': 4 }
+    userRatings: { 'user-demo-1': 5, 'user-demo-2': 5, 'user-demo-3': 4 },
+    phoneNumbers: ['01010764256 - الخط الساخن والطلب المباشر / Hotline & Direct Call', '01010764256 - واتساب خدمة العملاء والديلفاري / WhatsApp Service', '0223456789 - حجز الطاولات والمناسبات / Reservations'],
+    contactSections: [
+      {
+        id: 'sec-hanover-1',
+        departmentName: 'الخط الساخن وطلب التوصيل المباشر / Hotline & Delivery',
+        workingHours: 'يومياً من 10 صباحاً حتى 2 بعد منتصف الليل (متاح الآن)',
+        phoneNumbers: ['01010764256', '0223456789'],
+        whatsappNumbers: ['01010764256']
+      },
+      {
+        id: 'sec-hanover-2',
+        departmentName: 'إدارة المطعم واستقبال الشكاوى والمقترحات / Administration & Feedback',
+        workingHours: 'الأحد إلى الخميس من 9 صباحاً حتى 6 مساءً',
+        phoneNumbers: ['01010764256'],
+        whatsappNumbers: ['01010764256']
+      }
+    ]
   },
   {
     id: 'qr-2',
@@ -79,7 +96,24 @@ const INITIAL_QR_CODES = [
     favoritedBy: ['user-demo-2'],
     averageRating: 4.9,
     ratingsCount: 54,
-    userRatings: { 'user-demo-2': 5 }
+    userRatings: { 'user-demo-2': 5 },
+    phoneNumbers: ['01234567890 - خدمة العملاء والاشتراكات / Customer Service', '01098765432 - حجز مدرب خاص / Personal Trainers'],
+    contactSections: [
+      {
+        id: 'sec-fit-1',
+        departmentName: 'خدمة العملاء والاشتراكات / Customer Service',
+        workingHours: 'يومياً على مدار 24 ساعة',
+        phoneNumbers: ['01234567890', '0233445566'],
+        whatsappNumbers: ['01234567890']
+      },
+      {
+        id: 'sec-fit-2',
+        departmentName: 'حجز المدربين الخاصين والتغذية / Personal Trainers & Nutrition',
+        workingHours: 'يومياً من 8 صباحاً حتى 10 مساءً',
+        phoneNumbers: ['01098765432'],
+        whatsappNumbers: ['01098765432']
+      }
+    ]
   },
   {
     id: 'qr-3',
@@ -107,7 +141,8 @@ const INITIAL_QR_CODES = [
     favoritedBy: [],
     averageRating: 4.6,
     ratingsCount: 8,
-    userRatings: {}
+    userRatings: {},
+    phoneNumbers: ['19000 - الخط الساخن الموحد / Unified Hotline', '01111111111 - حجز الزيارات المنزلية / Home Sampling']
   },
   {
     id: 'qr-4',
@@ -135,7 +170,8 @@ const INITIAL_QR_CODES = [
     favoritedBy: ['user-demo-1'],
     averageRating: 4.9,
     ratingsCount: 42,
-    userRatings: { 'user-demo-1': 5, 'user-demo-2': 5 }
+    userRatings: { 'user-demo-1': 5, 'user-demo-2': 5 },
+    phoneNumbers: ['01022223333 - خدمة العملاء فرع التجمع / 5th Settlement Branch']
   },
   {
     id: 'qr-5',
@@ -163,7 +199,8 @@ const INITIAL_QR_CODES = [
     favoritedBy: ['user-demo-1', 'user-demo-2'],
     averageRating: 4.8,
     ratingsCount: 88,
-    userRatings: { 'user-demo-1': 5 }
+    userRatings: { 'user-demo-1': 5 },
+    phoneNumbers: ['16000 - خدمة العملاء والطلبات أونلاين / Online Orders & CS', '01222222222 - واتساب خدمة العملاء / WhatsApp CS']
   },
   {
     id: 'qr-6',
@@ -191,7 +228,8 @@ const INITIAL_QR_CODES = [
     favoritedBy: [],
     averageRating: 4.9,
     ratingsCount: 61,
-    userRatings: {}
+    userRatings: {},
+    phoneNumbers: ['01055556666 - قسم المبيعات والاشتراكات / Sales & Subscriptions', '01144445555 - الاستقبال والشكاوى / Reception']
   },
   {
     id: 'qr-7',
@@ -219,7 +257,8 @@ const INITIAL_QR_CODES = [
     favoritedBy: ['user-demo-2'],
     averageRating: 4.7,
     ratingsCount: 35,
-    userRatings: { 'user-demo-2': 5 }
+    userRatings: { 'user-demo-2': 5 },
+    phoneNumbers: ['19999 - الخط الساخن الموحد / Unified Hotline', '01088889999 - خدمة العملاء والواتساب / WhatsApp Support']
   },
   {
     id: 'qr-8',
@@ -247,7 +286,8 @@ const INITIAL_QR_CODES = [
     favoritedBy: ['user-demo-1', 'user-demo-2'],
     averageRating: 5.0,
     ratingsCount: 140,
-    userRatings: { 'user-demo-1': 5, 'user-demo-2': 5 }
+    userRatings: { 'user-demo-1': 5, 'user-demo-2': 5 },
+    phoneNumbers: ['0233334444 - مكتب استعلامات وحجز التذاكر / Ticket Booking Office', '01000000000 - خدمة كبار الزوار والجولات الخاصة / VIP Tours']
   },
   {
     id: 'qr-9',
@@ -275,7 +315,8 @@ const INITIAL_QR_CODES = [
     favoritedBy: ['user-demo-1'],
     averageRating: 4.8,
     ratingsCount: 76,
-    userRatings: { 'user-demo-1': 5 }
+    userRatings: { 'user-demo-1': 5 },
+    phoneNumbers: ['19090 - الخط الساخن السريع للطلبات / Fast Delivery Hotline', '01155555555 - خدمة واتساب للطلبات / WhatsApp Orders']
   },
   {
     id: 'qr-10',
@@ -303,7 +344,8 @@ const INITIAL_QR_CODES = [
     favoritedBy: [],
     averageRating: 4.6,
     ratingsCount: 29,
-    userRatings: {}
+    userRatings: {},
+    phoneNumbers: ['19600 - الخط الساخن وتوصيل الأدوية / Pharmacy Delivery Hotline', '01033333333 - استشارات الصيدلي الإكلينيكي / Pharmacist Consultation']
   },
   {
     id: 'qr-11',
@@ -331,7 +373,8 @@ const INITIAL_QR_CODES = [
     favoritedBy: ['user-demo-2'],
     averageRating: 4.9,
     ratingsCount: 112,
-    userRatings: { 'user-demo-2': 5 }
+    userRatings: { 'user-demo-2': 5 },
+    phoneNumbers: ['16200 - حجز التذاكر وخدمة العملاء / Ticket Booking & CS']
   }
 ];
 
@@ -350,10 +393,32 @@ const DEFAULT_EMERGENCY_CONFIG = {
   }
 };
 
+function syncDemoQRCodes(list: any[]): any[] {
+  return list.map((item: any) => {
+    const initItem = INITIAL_QR_CODES.find(i => i.id === item.id);
+    if (initItem) {
+      return {
+        ...item,
+        contactSections: initItem.contactSections || item.contactSections,
+        phoneNumbers: initItem.phoneNumbers || item.phoneNumbers
+      };
+    }
+    return item;
+  });
+}
+
 // Initialize or Migrate Local Storage Fallback if needed
 const storedQRs = localStorage.getItem(LOCAL_STORAGE_KEY_QR_CODES);
-if (!storedQRs || !storedQRs.includes('مطعم هافور') || !storedQRs.includes('imageUrl') || !storedQRs.includes('favoritesCount') || !storedQRs.includes('مدينة نصر') || !storedQRs.includes('ستاربكس') || !storedQRs.includes('كارفور')) {
+if (!storedQRs || !storedQRs.includes('مطعم هافور') || !storedQRs.includes('01010764256') || !storedQRs.includes('contactSections')) {
   localStorage.setItem(LOCAL_STORAGE_KEY_QR_CODES, JSON.stringify(INITIAL_QR_CODES));
+} else {
+  try {
+    const parsed = JSON.parse(storedQRs);
+    const synced = syncDemoQRCodes(parsed);
+    localStorage.setItem(LOCAL_STORAGE_KEY_QR_CODES, JSON.stringify(synced));
+  } catch (e) {
+    localStorage.setItem(LOCAL_STORAGE_KEY_QR_CODES, JSON.stringify(INITIAL_QR_CODES));
+  }
 }
 if (!localStorage.getItem(LOCAL_STORAGE_KEY_EMERGENCY)) {
   localStorage.setItem(LOCAL_STORAGE_KEY_EMERGENCY, JSON.stringify(DEFAULT_EMERGENCY_CONFIG));
@@ -404,7 +469,17 @@ export async function getQRCodesFromDB() {
   }
 
   const local = localStorage.getItem(LOCAL_STORAGE_KEY_QR_CODES);
-  return local ? JSON.parse(local) : INITIAL_QR_CODES;
+  if (local) {
+    try {
+      const parsed = JSON.parse(local);
+      const synced = syncDemoQRCodes(parsed);
+      localStorage.setItem(LOCAL_STORAGE_KEY_QR_CODES, JSON.stringify(synced));
+      return synced;
+    } catch (e) {
+      return INITIAL_QR_CODES;
+    }
+  }
+  return INITIAL_QR_CODES;
 }
 
 export async function insertQRCodeToDB(qrItem: any) {
@@ -508,7 +583,9 @@ export async function signUpWithSupabase(
   email: string,
   password: string,
   fullName: string,
-  role: 'user' | 'merchant'
+  role: 'user' | 'merchant',
+  subRole?: string,
+  subRoleTitle?: string
 ): Promise<{ user: UserProfile; isLiveSupabase: boolean; error?: string }> {
   ensureDemoProfilesInStorage();
   try {
@@ -540,7 +617,9 @@ export async function signUpWithSupabase(
         options: {
           data: {
             full_name: fullName,
-            role: role
+            role: role,
+            sub_role: subRole || '',
+            sub_role_title: subRoleTitle || ''
           }
         }
       });
@@ -556,7 +635,7 @@ export async function signUpWithSupabase(
       // 2. Add / Upsert the user profile with 'role' in the 'profiles' table in Supabase!
       // This guarantees custom permissions later per instructions:
       // "يتم إضافة حقل 'role' للمستخدم في جدول 'profiles' بناءً على الاختيار (user أو merchant)"
-      const profileRow = {
+      const profileRow: any = {
         id: userId,
         email: email,
         role: role,
@@ -564,6 +643,8 @@ export async function signUpWithSupabase(
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
+      if (subRole) profileRow.sub_role = subRole;
+      if (subRoleTitle) profileRow.sub_role_title = subRoleTitle;
 
       const { error: profileError } = await client
         .from('profiles')
@@ -586,6 +667,8 @@ export async function signUpWithSupabase(
     email,
     password,
     role: role,
+    subRole: subRole,
+    subRoleTitle: subRoleTitle,
     fullName: fullName,
     fullNameAr: fullName,
     fullNameEn: fullName,
@@ -677,16 +760,22 @@ export async function signInWithSupabase(
             id: profileData.id || userId,
             email: profileData.email || email,
             role: profileData.role || (authData.user.user_metadata?.role as any) || 'user',
+            subRole: profileData.sub_role || (authData.user.user_metadata?.sub_role as any),
+            subRoleTitle: profileData.sub_role_title || (authData.user.user_metadata?.sub_role_title as any),
             fullName: profileData.full_name || authData.user.user_metadata?.full_name || 'مستخدم CityQR',
             createdAt: profileData.created_at || new Date().toISOString()
           };
         } else {
           // Profile row might not exist yet, let's create it on the fly
           const fallbackRole = (authData.user.user_metadata?.role as any) || 'user';
+          const fallbackSubRole = (authData.user.user_metadata?.sub_role as any);
+          const fallbackSubRoleTitle = (authData.user.user_metadata?.sub_role_title as any);
           foundProfile = {
             id: userId,
             email: email,
             role: fallbackRole,
+            subRole: fallbackSubRole,
+            subRoleTitle: fallbackSubRoleTitle,
             fullName: authData.user.user_metadata?.full_name || 'مستخدم CityQR',
             createdAt: new Date().toISOString()
           };
@@ -694,6 +783,8 @@ export async function signInWithSupabase(
             id: userId,
             email: email,
             role: fallbackRole,
+            sub_role: fallbackSubRole || '',
+            sub_role_title: fallbackSubRoleTitle || '',
             full_name: foundProfile.fullName,
             updated_at: new Date().toISOString()
           });

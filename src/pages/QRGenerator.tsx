@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../services/AppContext';
 import { translations } from '../services/translations';
-import { QRCodeFormSchema, QRCodeFormValues, LandmarkCategory } from '../types';
+import { QRCodeFormSchema, QRCodeFormValues, LandmarkCategory, ContactSection } from '../types';
 import { 
   Sparkles, 
   MapPin, 
@@ -10,7 +10,13 @@ import {
   Compass, 
   Download, 
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  Trash2,
+  Phone,
+  MessageCircle,
+  Clock,
+  PhoneCall
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -33,8 +39,85 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
     addressAr: '',
     addressEn: '',
     lat: '',
-    lng: ''
+    lng: '',
+    phoneNumbersStr: ''
   });
+
+  // Contact Sections State (الأقسام وأرقام الاتصال والواتساب)
+  const defaultContactSections: ContactSection[] = [
+    {
+      id: `sec-${Date.now()}-1`,
+      departmentName: language === 'ar' ? 'خدمة العملاء والاستعلامات' : 'Customer Service & Info',
+      workingHours: language === 'ar' ? 'يومياً من 9 صباحاً حتى 10 مساءً' : 'Daily 9:00 AM - 10:00 PM',
+      phoneNumbers: ['', ''], // بوكس أول وبوكس ثاني
+      whatsappNumbers: [''] // خيار الواتساب (أقصى شيء رقمين)
+    }
+  ];
+  const [contactSections, setContactSections] = useState<ContactSection[]>(defaultContactSections);
+
+  const handleAddSection = () => {
+    setContactSections(prev => [
+      ...prev,
+      {
+        id: `sec-${Date.now()}-${prev.length + 1}`,
+        departmentName: '',
+        workingHours: '',
+        phoneNumbers: ['', ''],
+        whatsappNumbers: ['']
+      }
+    ]);
+  };
+
+  const handleRemoveSection = (secId: string) => {
+    setContactSections(prev => prev.filter(s => s.id !== secId));
+  };
+
+  const handleSectionFieldChange = (secId: string, field: 'departmentName' | 'workingHours', val: string) => {
+    setContactSections(prev => prev.map(s => s.id === secId ? { ...s, [field]: val } : s));
+  };
+
+  const handlePhoneChange = (secId: string, idx: number, val: string) => {
+    setContactSections(prev => prev.map(s => {
+      if (s.id !== secId) return s;
+      const newPhones = [...s.phoneNumbers];
+      newPhones[idx] = val;
+      return { ...s, phoneNumbers: newPhones };
+    }));
+  };
+
+  const handleAddPhone = (secId: string) => {
+    setContactSections(prev => prev.map(s => s.id === secId ? { ...s, phoneNumbers: [...s.phoneNumbers, ''] } : s));
+  };
+
+  const handleRemovePhone = (secId: string, idx: number) => {
+    setContactSections(prev => prev.map(s => {
+      if (s.id !== secId) return s;
+      return { ...s, phoneNumbers: s.phoneNumbers.filter((_, i) => i !== idx) };
+    }));
+  };
+
+  const handleWhatsAppChange = (secId: string, idx: number, val: string) => {
+    setContactSections(prev => prev.map(s => {
+      if (s.id !== secId) return s;
+      const newWa = [...s.whatsappNumbers];
+      newWa[idx] = val;
+      return { ...s, whatsappNumbers: newWa };
+    }));
+  };
+
+  const handleAddWhatsApp = (secId: string) => {
+    setContactSections(prev => prev.map(s => {
+      if (s.id !== secId || s.whatsappNumbers.length >= 2) return s; // أقصى شيء رقمين للواتساب
+      return { ...s, whatsappNumbers: [...s.whatsappNumbers, ''] };
+    }));
+  };
+
+  const handleRemoveWhatsApp = (secId: string, idx: number) => {
+    setContactSections(prev => prev.map(s => {
+      if (s.id !== secId) return s;
+      return { ...s, whatsappNumbers: s.whatsappNumbers.filter((_, i) => i !== idx) };
+    }));
+  };
 
   // Errors & Success States
   const [errors, setErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
@@ -91,6 +174,22 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
 
       const newQRUrl = `https://cityqr.local/scan/${Date.now()}`;
 
+      // تصفية الأقسام الفارغة والأرقام الفارغة
+      const cleanedSections = contactSections.map(sec => ({
+        ...sec,
+        phoneNumbers: sec.phoneNumbers.map(p => p.trim()).filter(Boolean),
+        whatsappNumbers: sec.whatsappNumbers.map(w => w.trim()).filter(Boolean)
+      })).filter(sec => sec.departmentName.trim() !== '' || sec.phoneNumbers.length > 0 || sec.whatsappNumbers.length > 0);
+
+      const fallbackPhones = cleanedSections.flatMap(sec => [
+        ...sec.phoneNumbers.map(p => `${p} (${sec.departmentName || 'اتصال'})`),
+        ...sec.whatsappNumbers.map(w => `${w} [واتساب - ${sec.departmentName || 'تواصل'}]`)
+      ]);
+
+      const phoneNumbers = formData.phoneNumbersStr
+        ? formData.phoneNumbersStr.split(',').map(s => s.trim()).filter(Boolean)
+        : (fallbackPhones.length > 0 ? fallbackPhones : ['19000 - خدمة العملاء الموحد / Customer Service']);
+
       const qrItem = {
         titleAr: formData.titleAr,
         titleEn: formData.titleEn,
@@ -100,6 +199,8 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
         qrUrl: newQRUrl,
         targetUrl: formData.targetUrl,
         location,
+        phoneNumbers,
+        contactSections: cleanedSections.length > 0 ? cleanedSections : undefined,
         totalScans: 0,
         isActive: true
       };
@@ -125,8 +226,10 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
         addressAr: '',
         addressEn: '',
         lat: '',
-        lng: ''
+        lng: '',
+        phoneNumbersStr: ''
       });
+      setContactSections(defaultContactSections);
       setErrors({});
 
       setTimeout(() => setSuccess(false), 5000);
@@ -328,6 +431,168 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
                     placeholder="e.g. Cairo - Nasr City"
                     className="w-full rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-white outline-none focus:border-[#D4AF37]"
                   />
+                </div>
+              </div>
+
+              {/* Contact & Phone Departments Section (أقسام الاتصال المباشر والواتساب) */}
+              <div className="border-t border-zinc-900 pt-6 space-y-5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wide flex items-center gap-1.5">
+                    <PhoneCall className="w-4 h-4 text-emerald-400 animate-pulse" />
+                    <span>{language === 'ar' ? 'أقسام الاتصال المباشر وأرقام التواصل والواتساب' : 'Contact Departments, Call & WhatsApp Numbers'}</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleAddSection}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-400 font-bold text-xs transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{language === 'ar' ? '+ إضافة قسم اتصال جديد (مثل: الإدارة / المبيعات)' : '+ Add Contact Department'}</span>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {contactSections.map((sec, secIndex) => (
+                    <div key={sec.id} className="p-4 rounded-2xl border border-zinc-800 bg-zinc-900/50 space-y-4 relative">
+                      {/* Header with Remove Section Button */}
+                      <div className="flex items-center justify-between gap-2 border-b border-zinc-800 pb-3">
+                        <span className="text-xs font-bold text-amber-400 px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/20">
+                          {language === 'ar' ? `القسم #${secIndex + 1}` : `Department #${secIndex + 1}`}
+                        </span>
+                        {contactSections.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSection(sec.id)}
+                            className="text-rose-400 hover:text-rose-300 transition text-xs flex items-center gap-1 cursor-pointer"
+                            title={language === 'ar' ? 'حذف هذا القسم' : 'Remove department'}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>{language === 'ar' ? 'حذف القسم' : 'Remove'}</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Department Name & Working Hours */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-zinc-400 font-semibold mb-1">
+                            {language === 'ar' ? 'اسم القسم (مثلاً: خدمة العملاء / الاتصال بالإدارة)' : 'Department Name (e.g. Customer Service / Administration)'}
+                          </label>
+                          <input
+                            type="text"
+                            value={sec.departmentName}
+                            onChange={(e) => handleSectionFieldChange(sec.id, 'departmentName', e.target.value)}
+                            placeholder={language === 'ar' ? 'مثال: خدمة العملاء والمبيعات' : 'e.g. Customer Service & Sales'}
+                            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 p-2.5 text-white outline-none focus:border-emerald-500 text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-zinc-400 font-semibold mb-1 flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                            <span>{language === 'ar' ? 'مواعيد الاتصال والعمل' : 'Working Hours / Call Times'}</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={sec.workingHours}
+                            onChange={(e) => handleSectionFieldChange(sec.id, 'workingHours', e.target.value)}
+                            placeholder={language === 'ar' ? 'مثال: يومياً من 9 صباحاً حتى 10 مساءً' : 'e.g. Daily 9 AM - 10 PM'}
+                            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 p-2.5 text-white outline-none focus:border-emerald-500 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Regular Voice Phone Boxes */}
+                      <div className="space-y-2 pt-2 border-t border-zinc-800/80">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+                            <Phone className="w-3.5 h-3.5" />
+                            <span>{language === 'ar' ? 'أرقام الاتصال الهاتفي المباشر (صوتي)' : 'Voice Call Numbers'}</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleAddPhone(sec.id)}
+                            className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>{language === 'ar' ? '+ إضافة رقم هاتف إضافي' : '+ Add another phone'}</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {sec.phoneNumbers.map((phone, pIdx) => (
+                            <div key={pIdx} className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-zinc-500 font-mono w-14 shrink-0">
+                                {language === 'ar' ? `رقم ${pIdx + 1}:` : `Phone ${pIdx + 1}:`}
+                              </span>
+                              <input
+                                type="text"
+                                value={phone}
+                                onChange={(e) => handlePhoneChange(sec.id, pIdx, e.target.value)}
+                                placeholder={language === 'ar' ? '010xxxxxx أو 19000' : '010xxxxxx or Hotline'}
+                                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 p-2 text-white font-mono text-xs outline-none focus:border-emerald-500 dir-ltr"
+                              />
+                              {sec.phoneNumbers.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemovePhone(sec.id, pIdx)}
+                                  className="text-zinc-500 hover:text-rose-400 p-1 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* WhatsApp Numbers Boxes (Max 2) */}
+                      <div className="space-y-2 pt-2 border-t border-zinc-800/80">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs text-green-400 font-bold flex items-center gap-1">
+                            <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+                            <span>{language === 'ar' ? 'أرقام التواصل عبر واتساب (أقصى حد رقمين)' : 'WhatsApp Numbers (Max 2)'}</span>
+                          </label>
+                          {sec.whatsappNumbers.length < 2 && (
+                            <button
+                              type="button"
+                              onClick={() => handleAddWhatsApp(sec.id)}
+                              className="text-xs text-green-400 hover:text-green-300 flex items-center gap-1 font-semibold cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>{language === 'ar' ? '+ إضافة رقم واتساب ثانٍ' : '+ Add 2nd WhatsApp'}</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {sec.whatsappNumbers.map((wa, wIdx) => (
+                            <div key={wIdx} className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-zinc-500 font-mono w-14 shrink-0">
+                                {language === 'ar' ? `واتساب ${wIdx + 1}:` : `WhatsApp ${wIdx + 1}:`}
+                              </span>
+                              <input
+                                type="text"
+                                value={wa}
+                                onChange={(e) => handleWhatsAppChange(sec.id, wIdx, e.target.value)}
+                                placeholder="011xxxxxx"
+                                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 p-2 text-white font-mono text-xs outline-none focus:border-green-500 dir-ltr"
+                              />
+                              {sec.whatsappNumbers.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveWhatsApp(sec.id, wIdx)}
+                                  className="text-zinc-500 hover:text-rose-400 p-1 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 

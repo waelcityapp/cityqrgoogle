@@ -26,6 +26,8 @@ export interface UserProfile {
   email: string;
   password?: string;
   role: 'user' | 'merchant' | 'admin' | 'operator' | 'citizen' | 'visitor';
+  subRole?: string; // e.g., 'tourist', 'citizen', 'vip_deal_hunter', 'restaurant', 'hotel', 'retail', 'medical', 'tour_operator'
+  subRoleTitle?: string; // Descriptive title in Arabic/English
   fullName?: string;
   fullNameAr?: string;
   fullNameEn?: string;
@@ -34,6 +36,14 @@ export interface UserProfile {
 
 // Landmark Category Type
 export type LandmarkCategory = 'monument' | 'transport' | 'facility' | 'emergency' | 'culture';
+
+export interface ContactSection {
+  id: string;
+  departmentName: string; // اسم القسم (مثلاً: خدمة العملاء / الإدارة / الشكاوى)
+  workingHours: string; // مواعيد الاتصال والعمل (مثلاً: يومياً من 9 ص حتى 10 م)
+  phoneNumbers: string[]; // أرقام الاتصال (بوكس أول وبوكس ثاني وممكن يزود بـ +)
+  whatsappNumbers: string[]; // أرقام الواتساب (أقصى شيء رقمين)
+}
 
 // QR Code Type (رمز الاستجابة السريعة للمعالم والمرافق)
 export interface QRCodeItem {
@@ -63,6 +73,8 @@ export interface QRCodeItem {
   averageRating?: number;
   ratingsCount?: number;
   userRatings?: { [userId: string]: number };
+  phoneNumbers?: string[]; // أرقام الهواتف والتواصل المباشر للفرع أو المعلن
+  contactSections?: ContactSection[]; // أقسام الاتصال والتواصل المتطورة
 }
 
 // Zod Validation Schemas
@@ -77,6 +89,8 @@ export const QRCodeFormSchema = z.object({
   addressEn: z.string().optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),
+  phoneNumbers: z.array(z.string()).optional(),
+  contactSections: z.any().optional(),
 });
 
 export type QRCodeFormValues = z.infer<typeof QRCodeFormSchema>;

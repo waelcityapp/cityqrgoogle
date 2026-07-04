@@ -31,7 +31,10 @@ import {
   ChevronRight,
   Heart,
   Star,
-  ThumbsUp
+  ThumbsUp,
+  Phone,
+  MessageCircle,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -53,6 +56,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
   const [hasTorch, setHasTorch] = useState(false);
   const [torchActive, setTorchActive] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
   
   // Test QR Modal State for pre-deployment camera & system verification
   const [showTestQRModal, setShowTestQRModal] = useState(false);
@@ -724,6 +728,133 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
                     <Star className="w-4 h-4 fill-amber-400" />
                     <span>★ {scannedQR.averageRating || '0.0'} ({scannedQR.ratingsCount || 0})</span>
                   </div>
+                </div>
+
+                {/* Inline Live Contact Sections & Direct Calling Box in Scanner Modal */}
+                <div className="p-3.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 dark:bg-zinc-900/90 space-y-3">
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                    <h4 className="font-extrabold text-xs text-emerald-400 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                      <span>{language === 'ar' ? 'أرقام الاتصال المباشر وخدمة العملاء (مثال حي)' : 'Direct Contact & Customer Service'}</span>
+                    </h4>
+                  </div>
+
+                  {scannedQR.contactSections && scannedQR.contactSections.length > 0 ? (
+                    <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                      {scannedQR.contactSections.map((sec, secIdx) => (
+                        <div key={sec.id || secIdx} className="p-3 rounded-xl bg-black/50 border border-zinc-800 space-y-2.5">
+                          <div className="border-b border-zinc-800/80 pb-1.5">
+                            <span className="font-bold text-xs text-white block">{sec.departmentName || (language === 'ar' ? `القسم #${secIdx + 1}` : `Department #${secIdx + 1}`)}</span>
+                            {sec.workingHours && (
+                              <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                                <Clock className="w-3 h-3 shrink-0" />
+                                <span>{sec.workingHours}</span>
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Voice Phones */}
+                          {sec.phoneNumbers && sec.phoneNumbers.filter(Boolean).length > 0 && (
+                            <div className="space-y-1.5">
+                              <span className="text-[10px] font-bold text-zinc-400 block">{language === 'ar' ? '📞 الاتصال الهاتفي المباشر:' : '📞 Voice Call:'}</span>
+                              {sec.phoneNumbers.filter(Boolean).map((num, pIdx) => {
+                                const cleanDigits = num.replace(/[^0-9+]/g, '');
+                                return (
+                                  <div key={pIdx} className="flex items-center justify-between p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs">
+                                    <span className="font-mono font-bold text-zinc-200 dir-ltr">{num}</span>
+                                    <div className="flex items-center gap-1">
+                                      <a
+                                        href={`tel:${cleanDigits}`}
+                                        className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold flex items-center gap-1 transition"
+                                      >
+                                        <Phone className="w-3 h-3" />
+                                        <span>{language === 'ar' ? 'اتصل' : 'Call'}</span>
+                                      </a>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(num);
+                                          setCopiedPhone(`${scannedQR.id}-sc-p-${pIdx}`);
+                                          setTimeout(() => setCopiedPhone(null), 2000);
+                                        }}
+                                        className="px-2 py-1 rounded border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-bold transition flex items-center gap-1"
+                                      >
+                                        {copiedPhone === `${scannedQR.id}-sc-p-${pIdx}` ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* WhatsApp Numbers */}
+                          {sec.whatsappNumbers && sec.whatsappNumbers.filter(Boolean).length > 0 && (
+                            <div className="space-y-1.5 pt-1">
+                              <span className="text-[10px] font-bold text-green-400 block">{language === 'ar' ? '💬 محادثة عبر واتساب:' : '💬 WhatsApp Chat:'}</span>
+                              {sec.whatsappNumbers.filter(Boolean).map((wa, wIdx) => {
+                                const cleanDigits = wa.replace(/[^0-9+]/g, '');
+                                return (
+                                  <div key={wIdx} className="flex items-center justify-between p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs">
+                                    <span className="font-mono font-bold text-zinc-200 dir-ltr">{wa}</span>
+                                    <div className="flex items-center gap-1">
+                                      <a
+                                        href={`https://wa.me/20${cleanDigits.replace(/^0+/, '')}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-2.5 py-1 rounded bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-[10px] font-bold flex items-center gap-1 transition"
+                                      >
+                                        <MessageCircle className="w-3 h-3" />
+                                        <span>{language === 'ar' ? 'واتساب' : 'WhatsApp'}</span>
+                                      </a>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(wa);
+                                          setCopiedPhone(`${scannedQR.id}-sc-w-${wIdx}`);
+                                          setTimeout(() => setCopiedPhone(null), 2000);
+                                        }}
+                                        className="px-2 py-1 rounded border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-bold transition flex items-center gap-1"
+                                      >
+                                        {copiedPhone === `${scannedQR.id}-sc-w-${wIdx}` ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {(scannedQR.phoneNumbers && scannedQR.phoneNumbers.length > 0 ? scannedQR.phoneNumbers : ['19000 - خدمة العملاء / Hotline']).map((numStr, idx) => {
+                        const parts = numStr.split('-');
+                        const rawNum = parts[0].trim();
+                        const cleanDigits = rawNum.replace(/[^0-9+]/g, '') || '19000';
+                        const label = parts.length > 1 ? parts.slice(1).join('-').trim() : (language === 'ar' ? 'الرقم المباشر' : 'Direct Number');
+                        return (
+                          <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-black/50 border border-zinc-800 text-xs">
+                            <div>
+                              <span className="font-mono font-bold text-white block dir-ltr">{rawNum}</span>
+                              <span className="text-[10px] text-zinc-400">{label}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <a href={`tel:${cleanDigits}`} className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold flex items-center gap-1">
+                                <Phone className="w-3 h-3" />
+                                <span>{language === 'ar' ? 'اتصل' : 'Call'}</span>
+                              </a>
+                              <a href={`https://wa.me/20${cleanDigits.replace(/^0+/, '')}`} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 rounded bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold flex items-center gap-1">
+                                <MessageCircle className="w-3 h-3" />
+                                <span>{language === 'ar' ? 'واتساب' : 'WA'}</span>
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Action buttons (Copy + Open Link/Search) */}

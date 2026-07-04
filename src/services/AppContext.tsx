@@ -37,7 +37,7 @@ interface AppContextType {
   appVersion: string;
   currentUser: UserProfile | null;
   loginUser: (email: string, password: string) => Promise<{ user: UserProfile; error?: string }>;
-  registerUser: (email: string, password: string, fullName: string, role: 'user' | 'merchant') => Promise<{ user: UserProfile; error?: string }>;
+  registerUser: (email: string, password: string, fullName: string, role: 'user' | 'merchant', subRole?: string, subRoleTitle?: string) => Promise<{ user: UserProfile; error?: string }>;
   logoutUser: () => Promise<void>;
   switchUserRole: (role: 'user' | 'merchant') => void;
 }
@@ -186,8 +186,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { user: result.user, error: result.error };
   };
 
-  const registerUser = async (email: string, password: string, fullName: string, role: 'user' | 'merchant') => {
-    const result = await signUpWithSupabase(email, password, fullName, role);
+  const registerUser = async (email: string, password: string, fullName: string, role: 'user' | 'merchant', subRole?: string, subRoleTitle?: string) => {
+    const result = await signUpWithSupabase(email, password, fullName, role, subRole, subRoleTitle);
     if (result.user && !result.error) {
       setCurrentUser(result.user);
     }

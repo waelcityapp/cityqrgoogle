@@ -37,7 +37,9 @@ import {
   Facebook,
   Twitter,
   ChevronDown,
-  Clock
+  Clock,
+  PhoneCall,
+  Phone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { smartMatchQRItem } from '../services/searchUtils';
@@ -72,6 +74,8 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
   const [gpsStatus, setGpsStatus] = useState<string>('');
   const [selectedLandmark, setSelectedLandmark] = useState<QRCodeItem | null>(null);
   const [sharingOffer, setSharingOffer] = useState<QRCodeItem | null>(null);
+  const [contactingOffer, setContactingOffer] = useState<QRCodeItem | null>(null);
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [visitorTipModal, setVisitorTipModal] = useState<{ isOpen: boolean; actionNameAr?: string; actionNameEn?: string }>({ isOpen: false });
   const [visibleCount, setVisibleCount] = useState<number>(6);
@@ -777,22 +781,37 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                       </div>
                     </div>
 
-                    {/* Share Offer Button - Available to both Visitors & Registered Users */}
+                    {/* Direct Contact & Share Buttons - Available to both Visitors & Registered Users */}
                     <div 
                       onClick={(e) => e.stopPropagation()}
-                      className="mt-3 pt-3 border-t border-zinc-900/80 flex items-center justify-between"
+                      className="mt-3 pt-3 border-t border-zinc-900/80 grid grid-cols-2 gap-2"
                     >
+                      {/* Direct Call Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setContactingOffer(qr);
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-gradient-to-r from-emerald-600/20 via-emerald-500/15 to-green-600/20 hover:from-emerald-600/40 hover:to-green-600/40 border border-emerald-500/40 hover:border-emerald-400 text-emerald-400 hover:text-white transition duration-300 cursor-pointer font-extrabold text-xs shadow-sm hover:shadow-[0_0_15px_rgba(16,185,129,0.25)] group/callbtn"
+                        title={language === 'ar' ? 'الاتصال المباشر بأرقام المعلن أو التواصل عبر واتساب' : 'Direct Call / WhatsApp contact with the advertiser'}
+                      >
+                        <PhoneCall className="w-3.5 h-3.5 text-emerald-400 group-hover/callbtn:scale-110 transition-transform shrink-0 animate-pulse" />
+                        <span className="truncate">{language === 'ar' ? 'اتصال مباشر' : 'Contact'}</span>
+                      </button>
+
+                      {/* Share Offer Button */}
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSharingOffer(qr);
                         }}
-                        className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-[#D4AF37]/15 via-[#D4AF37]/10 to-[#8B0000]/15 hover:from-[#D4AF37]/30 hover:to-[#8B0000]/30 border border-[#D4AF37]/40 hover:border-[#D4AF37] text-[#D4AF37] hover:text-white transition duration-300 cursor-pointer font-extrabold text-xs shadow-sm hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] group/btn"
+                        className="w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-gradient-to-r from-[#D4AF37]/15 via-[#D4AF37]/10 to-[#8B0000]/15 hover:from-[#D4AF37]/30 hover:to-[#8B0000]/30 border border-[#D4AF37]/40 hover:border-[#D4AF37] text-[#D4AF37] hover:text-white transition duration-300 cursor-pointer font-extrabold text-xs shadow-sm hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] group/btn"
                         title={language === 'ar' ? 'مشاركة هذا العرض مع الأصدقاء والعائلة عبر وسائل التواصل' : 'Share this offer with friends & family via social media'}
                       >
-                        <Share2 className="w-4 h-4 text-[#D4AF37] group-hover/btn:scale-110 transition-transform shrink-0" />
-                        <span>{language === 'ar' ? 'مشاركة العرض' : 'Share Offer'}</span>
+                        <Share2 className="w-3.5 h-3.5 text-[#D4AF37] group-hover/btn:scale-110 transition-transform shrink-0" />
+                        <span className="truncate">{language === 'ar' ? 'مشاركة العرض' : 'Share'}</span>
                       </button>
                     </div>
                   </div>
@@ -1035,18 +1054,158 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                         <span className="block font-bold text-green-500">● {t.activeStatus.toUpperCase()}</span>
                       </div>
                     </div>
+
+                    {/* Inline Live Contact Sections & Direct Calling Box */}
+                    <div className="pt-2">
+                      <div className="p-3.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 dark:bg-zinc-900/90 space-y-3">
+                        <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                          <h4 className="font-extrabold text-xs text-emerald-400 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                            <span>{language === 'ar' ? 'أرقام الاتصال المباشر وخدمة العملاء (مثال حي)' : 'Direct Contact & Customer Service'}</span>
+                          </h4>
+                        </div>
+
+                        {currentSelected.contactSections && currentSelected.contactSections.length > 0 ? (
+                          <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                            {currentSelected.contactSections.map((sec, secIdx) => (
+                              <div key={sec.id || secIdx} className="p-3 rounded-xl bg-black/50 border border-zinc-800 space-y-2.5">
+                                <div className="border-b border-zinc-800/80 pb-1.5">
+                                  <span className="font-bold text-xs text-white block">{sec.departmentName || (language === 'ar' ? `القسم #${secIdx + 1}` : `Department #${secIdx + 1}`)}</span>
+                                  {sec.workingHours && (
+                                    <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                                      <Clock className="w-3 h-3 shrink-0" />
+                                      <span>{sec.workingHours}</span>
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Voice Phones */}
+                                {sec.phoneNumbers && sec.phoneNumbers.filter(Boolean).length > 0 && (
+                                  <div className="space-y-1.5">
+                                    <span className="text-[10px] font-bold text-zinc-400 block">{language === 'ar' ? '📞 الاتصال الهاتفي المباشر:' : '📞 Voice Call:'}</span>
+                                    {sec.phoneNumbers.filter(Boolean).map((num, pIdx) => {
+                                      const cleanDigits = num.replace(/[^0-9+]/g, '');
+                                      return (
+                                        <div key={pIdx} className="flex items-center justify-between p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs">
+                                          <span className="font-mono font-bold text-zinc-200 dir-ltr">{num}</span>
+                                          <div className="flex items-center gap-1">
+                                            <a
+                                              href={`tel:${cleanDigits}`}
+                                              className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold flex items-center gap-1 transition"
+                                            >
+                                              <Phone className="w-3 h-3" />
+                                              <span>{language === 'ar' ? 'اتصل' : 'Call'}</span>
+                                            </a>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(num);
+                                                setCopiedPhone(`${currentSelected.id}-in-p-${pIdx}`);
+                                                setTimeout(() => setCopiedPhone(null), 2000);
+                                              }}
+                                              className="px-2 py-1 rounded border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-bold transition flex items-center gap-1"
+                                            >
+                                              {copiedPhone === `${currentSelected.id}-in-p-${pIdx}` ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* WhatsApp Numbers */}
+                                {sec.whatsappNumbers && sec.whatsappNumbers.filter(Boolean).length > 0 && (
+                                  <div className="space-y-1.5 pt-1">
+                                    <span className="text-[10px] font-bold text-green-400 block">{language === 'ar' ? '💬 محادثة عبر واتساب:' : '💬 WhatsApp Chat:'}</span>
+                                    {sec.whatsappNumbers.filter(Boolean).map((wa, wIdx) => {
+                                      const cleanDigits = wa.replace(/[^0-9+]/g, '');
+                                      return (
+                                        <div key={wIdx} className="flex items-center justify-between p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs">
+                                          <span className="font-mono font-bold text-zinc-200 dir-ltr">{wa}</span>
+                                          <div className="flex items-center gap-1">
+                                            <a
+                                              href={`https://wa.me/20${cleanDigits.replace(/^0+/, '')}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="px-2.5 py-1 rounded bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-[10px] font-bold flex items-center gap-1 transition"
+                                            >
+                                              <MessageCircle className="w-3 h-3" />
+                                              <span>{language === 'ar' ? 'واتساب' : 'WhatsApp'}</span>
+                                            </a>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(wa);
+                                                setCopiedPhone(`${currentSelected.id}-in-w-${wIdx}`);
+                                                setTimeout(() => setCopiedPhone(null), 2000);
+                                              }}
+                                              className="px-2 py-1 rounded border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-bold transition flex items-center gap-1"
+                                            >
+                                              {copiedPhone === `${currentSelected.id}-in-w-${wIdx}` ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {(currentSelected.phoneNumbers && currentSelected.phoneNumbers.length > 0 ? currentSelected.phoneNumbers : ['19000 - خدمة العملاء / Hotline']).map((numStr, idx) => {
+                              const parts = numStr.split('-');
+                              const rawNum = parts[0].trim();
+                              const cleanDigits = rawNum.replace(/[^0-9+]/g, '') || '19000';
+                              const label = parts.length > 1 ? parts.slice(1).join('-').trim() : (language === 'ar' ? 'الرقم المباشر' : 'Direct Number');
+                              return (
+                                <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-black/50 border border-zinc-800 text-xs">
+                                  <div>
+                                    <span className="font-mono font-bold text-white block dir-ltr">{rawNum}</span>
+                                    <span className="text-[10px] text-zinc-400">{label}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <a href={`tel:${cleanDigits}`} className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold flex items-center gap-1">
+                                      <Phone className="w-3 h-3" />
+                                      <span>{language === 'ar' ? 'اتصل' : 'Call'}</span>
+                                    </a>
+                                    <a href={`https://wa.me/20${cleanDigits.replace(/^0+/, '')}`} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 rounded bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold flex items-center gap-1">
+                                      <MessageCircle className="w-3 h-3" />
+                                      <span>{language === 'ar' ? 'واتساب' : 'WA'}</span>
+                                    </a>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-3 pt-6 border-t border-zinc-900 mt-auto">
-                    {/* Share Offer button in sidebar details */}
-                    <button
-                      type="button"
-                      onClick={() => setSharingOffer(currentSelected)}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37]/20 via-[#D4AF37]/10 to-[#8B0000]/20 hover:from-[#D4AF37]/30 hover:to-[#8B0000]/30 border border-[#D4AF37]/50 text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer font-bold text-xs shadow-sm"
-                    >
-                      <Share2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
-                      <span>{language === 'ar' ? 'مشاركة العرض مع الأصدقاء' : 'Share Offer with Friends'}</span>
-                    </button>
+                    {/* Contact & Share Buttons in sidebar details */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setContactingOffer(currentSelected)}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600/20 via-emerald-500/15 to-green-600/20 hover:from-emerald-600/40 hover:to-green-600/40 border border-emerald-500/50 text-emerald-400 hover:text-white transition duration-200 cursor-pointer font-bold text-xs shadow-sm group/callside"
+                      >
+                        <PhoneCall className="w-4 h-4 text-emerald-400 group-hover/callside:scale-110 transition-transform shrink-0 animate-pulse" />
+                        <span>{language === 'ar' ? 'اتصال مباشر' : 'Direct Call'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSharingOffer(currentSelected)}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37]/20 via-[#D4AF37]/10 to-[#8B0000]/20 hover:from-[#D4AF37]/30 hover:to-[#8B0000]/30 border border-[#D4AF37]/50 text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer font-bold text-xs shadow-sm"
+                      >
+                        <Share2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                        <span>{language === 'ar' ? 'مشاركة العرض' : 'Share Offer'}</span>
+                      </button>
+                    </div>
 
                     {/* Simulated Quick Scan trigger */}
                     <button
@@ -1272,6 +1431,251 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
             <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">
               <button
                 onClick={() => setSharingOffer(null)}
+                className="px-5 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-xs transition duration-150 cursor-pointer"
+              >
+                {language === 'ar' ? 'إغلاق' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Direct Contact & Phone Numbers Modal Overlay */}
+      {contactingOffer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl relative"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                  <PhoneCall className="w-5 h-5 text-emerald-500 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-zinc-900 dark:text-white">
+                    {language === 'ar' ? 'الاتصال المباشر وأرقام المعلن' : 'Direct Call & Contact'}
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {language === 'ar' ? contactingOffer.titleAr : contactingOffer.titleEn}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setContactingOffer(null)}
+                className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Instruction */}
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-4 leading-relaxed">
+              {language === 'ar'
+                ? 'اختر الرقم المناسب للاتصال الهاتفي المباشر بالفرع أو التحدث مع خدمة العملاء عبر واتساب بضغطة واحدة:'
+                : 'Select the appropriate number to call the branch directly or chat with customer service via WhatsApp:'}
+            </p>
+
+            {/* Phone Numbers List */}
+            <div className="mt-4 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+              {contactingOffer.contactSections && contactingOffer.contactSections.length > 0 ? (
+                contactingOffer.contactSections.map((sec, secIdx) => (
+                  <div key={sec.id || secIdx} className="p-4 rounded-2xl border border-emerald-500/30 dark:border-emerald-500/20 bg-emerald-500/5 dark:bg-zinc-900/80 space-y-3.5">
+                    {/* Department Title & Hours */}
+                    <div className="border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-extrabold text-sm text-zinc-900 dark:text-white flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                          <span>{sec.departmentName || (language === 'ar' ? `القسم #${secIdx + 1}` : `Department #${secIdx + 1}`)}</span>
+                        </h4>
+                      </div>
+                      {sec.workingHours && (
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                          <Clock className="w-3 h-3 shrink-0" />
+                          <span>{sec.workingHours}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Voice Phones */}
+                    {sec.phoneNumbers && sec.phoneNumbers.filter(Boolean).length > 0 && (
+                      <div className="space-y-2">
+                        <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 block">
+                          {language === 'ar' ? '📞 أرقام الاتصال الهاتفي المباشر:' : '📞 Voice Calls:'}
+                        </span>
+                        <div className="grid grid-cols-1 gap-2">
+                          {sec.phoneNumbers.filter(Boolean).map((num, pIdx) => {
+                            const cleanDigits = num.replace(/[^0-9+]/g, '');
+                            return (
+                              <div key={pIdx} className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                                <span className="font-mono font-bold text-xs text-zinc-800 dark:text-zinc-200 dir-ltr">{num}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <a
+                                    href={`tel:${cleanDigits}`}
+                                    className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold flex items-center gap-1 shadow-sm transition cursor-pointer"
+                                  >
+                                    <Phone className="w-3 h-3" />
+                                    <span>{language === 'ar' ? 'اتصال 📞' : 'Call 📞'}</span>
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(num);
+                                      setCopiedPhone(`${sec.id}-p-${pIdx}`);
+                                      setTimeout(() => setCopiedPhone(null), 2000);
+                                    }}
+                                    className="px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                                  >
+                                    {copiedPhone === `${sec.id}-p-${pIdx}` ? (
+                                      <>
+                                        <Check className="w-3 h-3 text-green-500" />
+                                        <span className="text-green-500">{language === 'ar' ? 'تم' : 'Copied'}</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3 h-3" />
+                                        <span>{language === 'ar' ? 'نسخ' : 'Copy'}</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* WhatsApp Numbers */}
+                    {sec.whatsappNumbers && sec.whatsappNumbers.filter(Boolean).length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        <span className="text-[11px] font-bold text-green-600 dark:text-green-400 block">
+                          {language === 'ar' ? '💬 أرقام التواصل عبر واتساب:' : '💬 WhatsApp Chat:'}
+                        </span>
+                        <div className="grid grid-cols-1 gap-2">
+                          {sec.whatsappNumbers.filter(Boolean).map((wa, wIdx) => {
+                            const cleanDigits = wa.replace(/[^0-9+]/g, '');
+                            return (
+                              <div key={wIdx} className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                                <span className="font-mono font-bold text-xs text-zinc-800 dark:text-zinc-200 dir-ltr">{wa}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <a
+                                    href={`https://wa.me/20${cleanDigits.replace(/^0+/, '')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-sm transition cursor-pointer"
+                                  >
+                                    <MessageCircle className="w-3 h-3" />
+                                    <span>{language === 'ar' ? 'واتساب 💬' : 'WhatsApp'}</span>
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(wa);
+                                      setCopiedPhone(`${sec.id}-w-${wIdx}`);
+                                      setTimeout(() => setCopiedPhone(null), 2000);
+                                    }}
+                                    className="px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-bold transition cursor-pointer flex items-center gap-1"
+                                  >
+                                    {copiedPhone === `${sec.id}-w-${wIdx}` ? (
+                                      <>
+                                        <Check className="w-3 h-3 text-green-500" />
+                                        <span className="text-green-500">{language === 'ar' ? 'تم' : 'Copied'}</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3 h-3" />
+                                        <span>{language === 'ar' ? 'نسخ' : 'Copy'}</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                /* Legacy fallback for items without contactSections */
+                (contactingOffer.phoneNumbers && contactingOffer.phoneNumbers.length > 0
+                  ? contactingOffer.phoneNumbers
+                  : ['19000 - خدمة العملاء والاستعلامات (الرقم الافتراضي) / Customer Service (Default)']
+                ).map((numStr, idx) => {
+                  const parts = numStr.split('-');
+                  const rawNum = parts[0].trim();
+                  const cleanDigits = rawNum.replace(/[^0-9+]/g, '') || '19000';
+                  const label = parts.length > 1 ? parts.slice(1).join('-').trim() : (language === 'ar' ? 'رقم الهاتف الرئيسي' : 'Main Contact Number');
+
+                  return (
+                    <div key={idx} className="p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/70 hover:border-emerald-500/40 transition">
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                          <span className="font-bold text-sm text-zinc-900 dark:text-white font-mono dir-ltr">{rawNum}</span>
+                        </div>
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                          {label}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800/80">
+                        {/* Call Phone */}
+                        <a
+                          href={`tel:${cleanDigits}`}
+                          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs transition shadow-sm cursor-pointer"
+                        >
+                          <Phone className="w-3.5 h-3.5 shrink-0" />
+                          <span>{language === 'ar' ? 'اتصال 📞' : 'Call 📞'}</span>
+                        </a>
+
+                        {/* WhatsApp Chat */}
+                        <a
+                          href={`https://wa.me/20${cleanDigits.replace(/^0+/, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-xs transition shadow-sm cursor-pointer"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{language === 'ar' ? 'واتساب 💬' : 'WhatsApp'}</span>
+                        </a>
+
+                        {/* Copy Number */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(rawNum);
+                            setCopiedPhone(`${contactingOffer.id}-${idx}`);
+                            setTimeout(() => setCopiedPhone(null), 2000);
+                          }}
+                          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold text-xs transition cursor-pointer"
+                        >
+                          {copiedPhone === `${contactingOffer.id}-${idx}` ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                              <span className="text-green-500">{language === 'ar' ? 'تم النسخ' : 'Copied!'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 shrink-0" />
+                              <span>{language === 'ar' ? 'نسخ' : 'Copy'}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer Close */}
+            <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">
+              <button
+                onClick={() => setContactingOffer(null)}
                 className="px-5 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-xs transition duration-150 cursor-pointer"
               >
                 {language === 'ar' ? 'إغلاق' : 'Close'}

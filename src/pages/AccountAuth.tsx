@@ -26,6 +26,86 @@ import {
 } from 'lucide-react';
 import { useApp } from '../services/AppContext';
 
+// Sub-roles definition for User accounts
+const USER_SUB_ROLES = [
+  {
+    id: 'tourist',
+    icon: Compass,
+    titleAr: 'زائر / سائح واستكشاف',
+    titleEn: 'Tourist / Explorer',
+    descAr: 'استكشاف المعالم والفعاليات ومسح رموز QR للحصول على العروض الترويجية والخرائط.',
+    descEn: 'Explore landmarks, scan tourist QRs, and discover exclusive maps and promotions.'
+  },
+  {
+    id: 'citizen',
+    icon: Shield,
+    titleAr: 'مواطن / مقيم محلي',
+    titleEn: 'Citizen / Resident',
+    descAr: 'الوصول السريع للخدمات المحلية والبلدية وأرقام الطوارئ والمرافق العامة المباشرة.',
+    descEn: 'Instant access to local government portals, municipal services, and emergency numbers.'
+  },
+  {
+    id: 'vip_deal_hunter',
+    icon: Sparkles,
+    titleAr: 'باحث عن عروض VIP',
+    titleEn: 'VIP Deal Hunter',
+    descAr: 'الوصول الحصري لخصومات الشركاء التجاريين وكوبونات المتاجر والمطاعم المعتمدة.',
+    descEn: 'Exclusive access to partner discounts, verified store coupons, and VIP rewards.'
+  },
+  {
+    id: 'volunteer',
+    icon: UserCheck,
+    titleAr: 'متطوع ميداني ومراقب',
+    titleEn: 'Field Volunteer & Verifier',
+    descAr: 'المساعدة في التحقق من صحة مواقع المعالم وتحديث بيانات المرافق العامة والملاحة.',
+    descEn: 'Help verify landmark accuracy, report public facility status, and assist community navigation.'
+  }
+];
+
+// Sub-roles definition for Merchant accounts
+const MERCHANT_SUB_ROLES = [
+  {
+    id: 'restaurant',
+    icon: Store,
+    titleAr: 'مطعم / كافيه ومشروبات',
+    titleEn: 'Restaurant / Cafe',
+    descAr: 'قائمة طعام رقمية QR متطورة، عروض يومية حصرية، وأرقام حجز واتساب مباشر.',
+    descEn: 'Advanced digital QR menu, daily promotional deals, and direct WA reservation buttons.'
+  },
+  {
+    id: 'hotel',
+    icon: Building2,
+    titleAr: 'فندق / منتجع سياحي',
+    titleEn: 'Hotel / Resort',
+    descAr: 'عرض غرف وأجنحة النزلاء، الخدمات الترفيهية، وحجوزات مكتب الاستقبال المباشر.',
+    descEn: 'Showcase rooms & suites, amenity guides, and instant front desk booking portals.'
+  },
+  {
+    id: 'retail',
+    icon: Layers,
+    titleAr: 'متجر تجزئة / مول تجاري',
+    titleEn: 'Retail Store / Mall',
+    descAr: 'نشر الخصومات الموسمية، كتالوج المنتجات التفاعلي، وأقسام خدمة العملاء والشكاوى.',
+    descEn: 'Publish seasonal discounts, interactive product catalog, and customer service departments.'
+  },
+  {
+    id: 'medical',
+    icon: Shield,
+    titleAr: 'خدمة طبية / عيادة / مستشفى',
+    titleEn: 'Medical / Clinic / Hospital',
+    descAr: 'أرقام الطوارئ المباشرة، مواعيد الأطباء، وحجز الاستشارات والفحوصات الفورية.',
+    descEn: 'Direct emergency numbers, clinic working hours, and instant consultation bookings.'
+  },
+  {
+    id: 'entertainment',
+    icon: Zap,
+    titleAr: 'خدمة سياحية / ترفيه وفعاليات',
+    titleEn: 'Tour Operator / Entertainment',
+    descAr: 'تنظيم الرحلات السياحية، حجز تذاكر الفعاليات، وجولات الإرشاد التفاعلي بالموقع.',
+    descEn: 'Organize guided tours, event ticketing, and interactive on-site audio/visual guides.'
+  }
+];
+
 interface AccountAuthProps {
   onNavigate?: (tabId: string) => void;
   initialMode?: 'signup' | 'signin';
@@ -36,6 +116,7 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
 
   const [authMode, setAuthMode] = useState<'signup' | 'signin'>(initialMode || 'signin');
   const [selectedRole, setSelectedRole] = useState<'user' | 'merchant'>('user');
+  const [selectedSubRole, setSelectedSubRole] = useState<string>('tourist');
   
   useEffect(() => {
     if (initialMode) {
@@ -71,7 +152,11 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
     setLoading(true);
     try {
       if (authMode === 'signup') {
-        const result = await registerUser(email, password, fullName, selectedRole);
+        const subList = selectedRole === 'merchant' ? MERCHANT_SUB_ROLES : USER_SUB_ROLES;
+        const matchedSub = subList.find(s => s.id === selectedSubRole) || subList[0];
+        const subTitle = language === 'ar' ? matchedSub?.titleAr : matchedSub?.titleEn;
+        
+        const result = await registerUser(email, password, fullName, selectedRole, selectedSubRole, subTitle);
         if (result.error || !result.user) {
           setErrorMsg(result.error || (language === 'ar' ? 'فشل إنشاء الحساب' : 'Registration failed'));
         } else {
@@ -109,11 +194,13 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
       setPassword('merchant123456');
       setFullName('شركة هافور التجارية');
       setSelectedRole('merchant');
+      setSelectedSubRole('restaurant');
     } else {
       setEmail('citizen@cityqr.com');
       setPassword('user123456');
       setFullName('أحمد العتيبي');
       setSelectedRole('user');
+      setSelectedSubRole('tourist');
     }
     setErrorMsg(null);
     setSuccessMsg(
@@ -205,6 +292,12 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                         ? (language === 'ar' ? 'حساب تاجر / شريك تجاري' : 'MERCHANT PARTNER ROLE')
                         : (language === 'ar' ? 'حساب عميل / مستخدم' : 'CUSTOMER / USER ROLE')}
                     </span>
+                    {(currentUser.subRoleTitle || currentUser.subRole) && (
+                      <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-zinc-800 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shadow-sm">
+                        <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
+                        <span>{currentUser.subRoleTitle || (language === 'ar' ? `تصنيف: ${currentUser.subRole}` : `Tier: ${currentUser.subRole}`)}</span>
+                      </span>
+                    )}
                     <span className="text-xs text-zinc-500 font-mono">
                       ID: {currentUser.id.substring(0, 14)}...
                     </span>
@@ -464,7 +557,12 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* OPTION 1: USER / CUSTOMER ROLE */}
                     <div
-                      onClick={() => setSelectedRole('user')}
+                      onClick={() => {
+                        setSelectedRole('user');
+                        if (!USER_SUB_ROLES.some(s => s.id === selectedSubRole)) {
+                          setSelectedSubRole('tourist');
+                        }
+                      }}
                       className={`p-5 rounded-2xl border-2 transition-all duration-200 cursor-pointer relative flex flex-col justify-between ${
                         selectedRole === 'user'
                           ? 'border-emerald-500 bg-emerald-950/20 shadow-[0_0_25px_rgba(16,185,129,0.2)] ring-2 ring-emerald-500/30'
@@ -512,7 +610,12 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
 
                     {/* OPTION 2: MERCHANT / PARTNER ROLE */}
                     <div
-                      onClick={() => setSelectedRole('merchant')}
+                      onClick={() => {
+                        setSelectedRole('merchant');
+                        if (!MERCHANT_SUB_ROLES.some(s => s.id === selectedSubRole)) {
+                          setSelectedSubRole('restaurant');
+                        }
+                      }}
                       className={`p-5 rounded-2xl border-2 transition-all duration-200 cursor-pointer relative flex flex-col justify-between ${
                         selectedRole === 'merchant'
                           ? 'border-[#D4AF37] bg-[#8B0000]/15 shadow-[0_0_25px_rgba(212,175,55,0.25)] ring-2 ring-[#D4AF37]/30'
@@ -558,6 +661,70 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                       </div>
                     </div>
                   </div>
+
+                  {/* STEP 2: SUB-ROLE / TIER SELECTION */}
+                  <div className="pt-4 border-t border-zinc-800/80 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <h3 className="text-sm font-black text-white flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center text-xs font-black">2</span>
+                        <span>
+                          {language === 'ar'
+                            ? `اختر تصنيف ${selectedRole === 'merchant' ? 'نشاط التاجر / الشريك التجاري' : 'حساب العميل / المستخدم'} المخصص:`
+                            : `Select Specific Tier for ${selectedRole === 'merchant' ? 'Merchant Partner' : 'Customer / User'}:`}
+                        </span>
+                      </h3>
+                      <span className="text-[11px] font-mono text-zinc-400 bg-zinc-900 px-2.5 py-1 rounded-md border border-zinc-800">
+                        {selectedRole === 'merchant'
+                          ? (language === 'ar' ? '🏪 أنشطة وأعمال تجارية' : '🏪 Business Sectors')
+                          : (language === 'ar' ? '👤 اهتمامات وصلاحيات الأفراد' : '👤 Individual Tiers')}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      {(selectedRole === 'merchant' ? MERCHANT_SUB_ROLES : USER_SUB_ROLES).map((sub) => {
+                        const Icon = sub.icon;
+                        const isSelected = selectedSubRole === sub.id;
+                        return (
+                          <div
+                            key={sub.id}
+                            onClick={() => setSelectedSubRole(sub.id)}
+                            className={`p-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between ${
+                              isSelected
+                                ? selectedRole === 'merchant'
+                                  ? 'border-[#D4AF37] bg-[#8B0000]/25 shadow-[0_0_20px_rgba(212,175,55,0.2)]'
+                                  : 'border-emerald-500 bg-emerald-950/30 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+                                : 'border-zinc-800/80 bg-zinc-950/50 hover:border-zinc-700 hover:bg-zinc-900/40'
+                            }`}
+                          >
+                            <div className="space-y-2 mb-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className={`p-2.5 rounded-xl ${
+                                  isSelected
+                                    ? selectedRole === 'merchant' ? 'bg-[#D4AF37] text-zinc-950 font-black shadow-md' : 'bg-emerald-500 text-zinc-950 font-black shadow-md'
+                                    : 'bg-zinc-800 text-zinc-400'
+                                }`}>
+                                  <Icon className="w-4 h-4" />
+                                </div>
+                                <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
+                                  isSelected
+                                    ? selectedRole === 'merchant' ? 'border-[#D4AF37] bg-[#D4AF37] text-zinc-950' : 'border-emerald-500 bg-emerald-500 text-zinc-950'
+                                    : 'border-zinc-700'
+                                }`}>
+                                  {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                </div>
+                              </div>
+                              <h4 className="font-black text-xs sm:text-sm text-white">
+                                {language === 'ar' ? sub.titleAr : sub.titleEn}
+                              </h4>
+                            </div>
+                            <p className="text-[11px] text-zinc-400 leading-relaxed pt-2 border-t border-zinc-800/60">
+                              {language === 'ar' ? sub.descAr : sub.descEn}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -568,7 +735,7 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
               
               <div className="flex items-center gap-2 pb-4 border-b border-zinc-800/80">
                 <span className="w-6 h-6 rounded-full bg-[#D4AF37] text-zinc-950 flex items-center justify-center text-xs font-black">
-                  {authMode === 'signup' ? '2' : '1'}
+                  {authMode === 'signup' ? '3' : '1'}
                 </span>
                 <h3 className="text-sm font-black text-white">
                   {authMode === 'signup' 
