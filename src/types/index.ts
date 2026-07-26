@@ -26,12 +26,15 @@ export interface UserProfile {
   email: string;
   password?: string;
   role: 'user' | 'merchant' | 'admin' | 'operator' | 'citizen' | 'visitor';
-  subRole?: string; // e.g., 'tourist', 'citizen', 'vip_deal_hunter', 'restaurant', 'hotel', 'retail', 'medical', 'tour_operator'
+  subRole?: string; // e.g., 'tourist', 'citizen', 'vip_deal_hunter', 'first_class', 'business_class', 'restaurant', 'hotel', etc.
   subRoleTitle?: string; // Descriptive title in Arabic/English
   fullName?: string;
   fullNameAr?: string;
   fullNameEn?: string;
   createdAt: string;
+  affiliateCode?: string; // Unique marketing referral code
+  walletBalance?: number; // Digital wallet balance in EGP/USD
+  monthlyPlanPrice?: number; // Monthly subscription fee
 }
 
 // Landmark Category Type

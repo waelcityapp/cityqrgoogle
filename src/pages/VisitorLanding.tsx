@@ -39,7 +39,8 @@ import {
   ChevronDown,
   Clock,
   PhoneCall,
-  Phone
+  Phone,
+  ArrowUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { smartMatchQRItem } from '../services/searchUtils';
@@ -358,7 +359,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
           <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent sm:hidden" />
         </div>
 
-        <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line z-20"></div>
+        <div className="absolute top-0 left-0 w-full h-0.5 animated-glow-line z-20"></div>
         
         {/* Glowing Ambient Lights */}
         <div className="absolute top-0 right-0 w-80 h-80 bg-[#8B0000]/15 rounded-full blur-3xl z-0 pointer-events-none group-hover/hero:bg-[#8B0000]/25 transition duration-700" />
@@ -637,41 +638,55 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                       document.getElementById('offer-details-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }, 100);
                   }}
-                  className="p-5 rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/95 via-zinc-900/60 to-zinc-950 hover:border-[#D4AF37]/50 hover:shadow-[0_12px_35px_rgba(212,175,55,0.12)] dark:shadow-[0_4px_25px_-2px_rgba(255,255,255,0.1),0_0_15px_rgba(255,255,255,0.05)] dark:hover:shadow-[0_8px_32px_-2px_rgba(255,255,255,0.18),0_0_20px_rgba(255,255,255,0.08)] transition-all duration-300 cursor-pointer relative overflow-hidden group flex flex-col justify-between hover:-translate-y-1"
+                  className="p-5 rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/95 via-zinc-900/80 to-zinc-950 hover:border-[#D4AF37]/60 hover:shadow-[0_15px_40px_rgba(212,175,55,0.18)] dark:shadow-[0_4px_25px_-2px_rgba(255,255,255,0.12),0_0_15px_rgba(255,255,255,0.06)] dark:hover:shadow-[0_12px_40px_-2px_rgba(255,255,255,0.22),0_0_25px_rgba(212,175,55,0.2)] transition-all duration-300 cursor-pointer relative overflow-hidden group flex flex-col justify-between hover:-translate-y-1.5 backdrop-blur-md"
                 >
                   {/* Shimmering top line overlay on hover */}
                   <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-0 group-hover:opacity-100 transition duration-500" />
 
                   <div>
-                    {/* Subtle active state decoration */}
+                    {/* Active state indicator */}
                     {qr.isActive && (
                       <div className="absolute top-0 left-0 w-1.5 h-full bg-[#8B0000]" />
                     )}
 
                     <div className="flex justify-between items-start gap-2">
-                      <span className="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-zinc-950 border border-[#D4AF37]/30 text-[#D4AF37] uppercase tracking-wider shadow-sm group-hover:border-[#D4AF37] transition duration-300">
+                      <span className="px-3 py-1 rounded-lg text-[10px] font-black bg-zinc-950 border border-[#D4AF37]/40 text-[#D4AF37] uppercase tracking-wider shadow-sm group-hover:border-[#D4AF37] group-hover:shadow-[0_0_10px_rgba(212,175,55,0.3)] transition duration-300">
                         {getCategoryLabel(qr.category)}
                       </span>
-                      <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1 shrink-0 bg-zinc-900/80 px-2 py-0.5 rounded border border-zinc-800">
-                        <Activity className="w-3 h-3 text-green-500 animate-pulse" />
-                        {qr.totalScans} {t.scansCount}
+                      <span className="text-[10px] text-zinc-300 font-mono flex items-center gap-1 shrink-0 bg-black/80 px-2.5 py-1 rounded-lg border border-zinc-800 shadow-sm">
+                        <Activity className="w-3 h-3 text-emerald-400 animate-pulse" />
+                        <span className="font-bold">{qr.totalScans}</span> {t.scansCount}
                       </span>
                     </div>
 
                     {/* Premium Card Image thumbnail */}
                     {qr.imageUrl && (
-                      <div className="w-full h-40 sm:h-44 rounded-xl overflow-hidden mt-3 relative border-[1.5px] border-red-500/35 dark:border-red-500/35 bg-zinc-950 group-hover:border-red-500/60 transition duration-300 shadow-inner">
+                      <div className="w-full h-44 sm:h-48 rounded-2xl overflow-hidden mt-3 relative border-[1.5px] border-[#D4AF37]/30 dark:border-[#D4AF37]/30 bg-zinc-950 group-hover:border-[#D4AF37]/70 transition duration-500 shadow-lg group-hover:shadow-[0_0_20px_rgba(212,175,55,0.2)]">
                         <img
                           src={qr.imageUrl}
                           alt={language === 'ar' ? qr.titleAr : qr.titleEn}
-                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                          className="w-full h-full object-cover group-hover:scale-108 transition duration-700"
                           referrerPolicy="no-referrer"
+                          loading={index < 4 ? "eager" : "lazy"}
+                          decoding="async"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-50 group-hover:opacity-30 transition duration-300" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition duration-300" />
+                        
+                        {/* Rating Overlay Pill on top-left of image */}
+                        <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-black/85 backdrop-blur-md border border-amber-500/50 px-2.5 py-1 rounded-full text-amber-300 font-mono text-xs font-black shadow-md">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          <span>{qr.averageRating || '5.0'}</span>
+                        </div>
+
+                        {/* Exclusive Tag on top-right of image */}
+                        <div className="absolute top-2.5 right-2.5 bg-gradient-to-r from-[#8B0000] to-red-600 text-white text-[9px] font-black px-2.5 py-1 rounded-full border border-red-400/50 shadow-md flex items-center gap-1">
+                          <span>🔥</span>
+                          <span>{language === 'ar' ? 'عرض خاص' : 'Special Offer'}</span>
+                        </div>
                       </div>
                     )}
 
-                    <h4 className="text-base font-bold text-white mt-3 group-hover:text-[#D4AF37] transition line-clamp-1">
+                    <h4 className="text-lg font-black text-white mt-3.5 group-hover:text-[#D4AF37] transition line-clamp-1 leading-snug">
                       {language === 'ar' ? qr.titleAr : qr.titleEn}
                     </h4>
 
@@ -887,10 +902,10 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
                   onClick={() => {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-[#D4AF37] border border-[#D4AF37]/30 hover:border-[#D4AF37] font-bold text-sm active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-zinc-950/90 hover:bg-[#D4AF37] text-[#D4AF37] hover:text-zinc-950 border border-[#D4AF37]/40 hover:border-[#D4AF37] font-black text-xs sm:text-sm active:scale-95 transition-all duration-300 flex items-center justify-center gap-2.5 cursor-pointer shadow-xl group backdrop-blur-md"
                   title={language === 'ar' ? 'العودة لأعلى الصفحة' : 'Back to Top'}
                 >
-                  <span className="text-lg">👆</span>
+                  <ArrowUp className="w-4 h-4 stroke-[2.5] group-hover:-translate-y-1 transition-transform duration-300" />
                   <span>{language === 'ar' ? 'العودة للأعلى' : 'Back to Top'}</span>
                 </button>
               )}
@@ -902,7 +917,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
         <div id="offer-details-panel" className={`space-y-4 ${!currentSelected ? 'hidden lg:block' : 'block'}`}>
           <div className="p-6 rounded-2xl border border-zinc-800 bg-zinc-950 relative overflow-hidden h-full flex flex-col justify-between min-h-[400px] dark:shadow-[0_4px_25px_-2px_rgba(255,255,255,0.1),0_0_15px_rgba(255,255,255,0.05)] dark:hover:shadow-[0_8px_32px_-2px_rgba(255,255,255,0.18),0_0_20px_rgba(255,255,255,0.08)] transition-all duration-300">
             {/* Top colored line indicator */}
-            <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
+            <div className="absolute top-0 left-0 w-full h-0.5 animated-glow-line"></div>
             
             {/* Panel Header */}
             <div className="border-b border-zinc-800/80 pb-3 mb-2 flex items-center justify-between">
@@ -1264,7 +1279,7 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
             onClick={(e) => e.stopPropagation()}
             className="relative w-full max-w-md overflow-hidden rounded-2xl border border-zinc-200 dark:border-[#D4AF37]/30 bg-white dark:bg-zinc-950 p-6 shadow-2xl text-zinc-950 dark:text-zinc-100 z-10 max-h-[90vh] overflow-y-auto"
           >
-            <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
+            <div className="absolute top-0 left-0 w-full h-0.5 animated-glow-line"></div>
             
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
@@ -1787,11 +1802,11 @@ export const VisitorLanding: React.FC<VisitorLandingProps> = ({
             {/* Floating Back to Top Button */}
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="pointer-events-auto bg-gradient-to-tr from-[#D4AF37] via-amber-400 to-[#D4AF37] text-black px-3.5 py-3 sm:p-3.5 rounded-2xl shadow-[0_5px_25px_rgba(212,175,55,0.6)] hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer border border-white/40 flex items-center gap-1 font-black text-xs group shrink-0"
+              className="pointer-events-auto bg-zinc-950/90 hover:bg-[#D4AF37] text-[#D4AF37] hover:text-zinc-950 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.8)] border border-[#D4AF37]/40 hover:border-[#D4AF37] backdrop-blur-xl hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer flex items-center gap-2 font-black text-xs group shrink-0"
               title={language === 'ar' ? 'العودة للأعلى' : 'Back to Top'}
             >
-              <span className="text-base group-hover:-translate-y-1 transition-transform inline-block">👆</span>
-              <span className="font-black">{language === 'ar' ? 'للأعلى' : 'Top'}</span>
+              <ArrowUp className="w-4 h-4 stroke-[2.5] group-hover:-translate-y-1 transition-transform duration-300" />
+              <span className="font-black tracking-tight">{language === 'ar' ? 'للأعلى' : 'Top'}</span>
             </button>
           </motion.div>
         )}

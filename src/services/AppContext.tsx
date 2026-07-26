@@ -4,6 +4,7 @@ import {
   getEmergencyConfigFromDB, 
   updateEmergencyConfigInDB, 
   getQRCodesFromDB, 
+  getStoredQRCodesSync,
   insertQRCodeToDB, 
   incrementQRScanCountInDB,
   toggleQRLikeInDB,
@@ -12,6 +13,9 @@ import {
   isSupabaseConfigured,
   signUpWithSupabase,
   signInWithSupabase,
+  signInWithGoogle,
+  getCurrentUserFromSupabaseSession,
+  getSupabaseClient,
   signOutFromSupabase,
   getStoredUserProfile
 } from './supabase';
@@ -37,6 +41,7 @@ interface AppContextType {
   appVersion: string;
   currentUser: UserProfile | null;
   loginUser: (email: string, password: string) => Promise<{ user: UserProfile; error?: string }>;
+  loginWithGoogle: () => Promise<{ error?: string }>;
   registerUser: (email: string, password: string, fullName: string, role: 'user' | 'merchant', subRole?: string, subRoleTitle?: string) => Promise<{ user: UserProfile; error?: string }>;
   logoutUser: () => Promise<void>;
   switchUserRole: (role: 'user' | 'merchant') => void;
@@ -156,7 +161,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateMessage: { ar: '', en: '' }
   });
 
-  const [qrcodes, setQrcodes] = useState<QRCodeItem[]>([]);
+  const [qrcodes, setQrcodes] = useState<QRCodeItem[]>(() => getStoredQRCodesSync());
 
   // Fetch initial data
   const loadInitialData = async () => {
@@ -178,12 +183,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 5. User Authentication State & Supabase Integration
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => getStoredUserProfile());
 
+  // Listen for Supabase OAuth / Session changes (e.g. after Google Sign-In redirect)
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (client) {
+      // Check existing session
+      getCurrentUserFromSupabaseSession().then((user) => {
+        if (user) setCurrentUser(user);
+      });
+
+      const { data: authListener } = client.auth.onAuthStateChange(async (event) => {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+          const user = await getCurrentUserFromSupabaseSession();
+          if (user) setCurrentUser(user);
+        } else if (event === 'SIGNED_OUT') {
+          setCurrentUser(null);
+        }
+      });
+
+      return () => {
+        authListener?.subscription?.unsubscribe();
+      };
+    }
+  }, []);
+
   const loginUser = async (email: string, password: string) => {
     const result = await signInWithSupabase(email, password);
     if (result.user && !result.error) {
       setCurrentUser(result.user);
     }
     return { user: result.user, error: result.error };
+  };
+
+  const loginWithGoogle = async () => {
+    return await signInWithGoogle();
   };
 
   const registerUser = async (email: string, password: string, fullName: string, role: 'user' | 'merchant', subRole?: string, subRoleTitle?: string) => {
@@ -310,6 +343,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         appVersion,
         currentUser,
         loginUser,
+        loginWithGoogle,
         registerUser,
         logoutUser,
         switchUserRole

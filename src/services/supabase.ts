@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { UserProfile } from '../types';
 
 // Retrieve credentials safely from Vite environment variables
-const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL1 || '';
-const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY1 || '';
+const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || (import.meta as any).env?.VITE_SUPABASE_URL1 || '';
+const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY1 || '';
 
 // Check if credentials exist for real Supabase connection
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
@@ -457,6 +457,21 @@ export async function updateEmergencyConfigInDB(config: typeof DEFAULT_EMERGENCY
 }
 
 // QR Code Operations Helper
+export function getStoredQRCodesSync() {
+  if (typeof window === 'undefined') return INITIAL_QR_CODES;
+  const local = localStorage.getItem(LOCAL_STORAGE_KEY_QR_CODES);
+  if (local) {
+    try {
+      const parsed = JSON.parse(local);
+      const synced = syncDemoQRCodes(parsed);
+      return synced;
+    } catch (e) {
+      return INITIAL_QR_CODES;
+    }
+  }
+  return INITIAL_QR_CODES;
+}
+
 export async function getQRCodesFromDB() {
   const client = getSupabaseClient() as any;
   if (client) {
@@ -825,6 +840,12 @@ export async function signInWithSupabase(
   }
 
   // Save session
+  if (foundProfile && foundProfile.email.toLowerCase() === 'waelvts@gmail.com') {
+    foundProfile.role = 'admin';
+    foundProfile.subRole = 'super_admin';
+    foundProfile.subRoleTitle = 'المدير المباشر والأدمن الرئيسي (Super Admin)';
+  }
+
   try {
     localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(foundProfile));
   } catch (e) {
@@ -832,6 +853,114 @@ export async function signInWithSupabase(
   }
 
   return { user: foundProfile, isLiveSupabase: isLive, error: errorMsg };
+}
+
+/**
+ * Initiates Google OAuth Sign-In via Supabase Auth
+ */
+export async function signInWithGoogle(): Promise<{ error?: string }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { error: 'اتصال Supabase غير مهيأ بعد. يرجى التأكد من إضافة VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY.' };
+  }
+
+  try {
+    const { error } = await client.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+    return {};
+  } catch (err: any) {
+    return { error: err?.message || 'فشل بدء عملية تسجيل الدخول بحساب جوجل' };
+  }
+}
+
+/**
+ * Checks active OAuth session from Supabase (e.g. after Google OAuth redirect)
+ */
+export async function getCurrentUserFromSupabaseSession(): Promise<UserProfile | null> {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const { data: { session }, error } = await client.auth.getSession();
+    if (error || !session || !session.user) return null;
+
+    const user = session.user;
+    const email = user.email || '';
+    const fullName = user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0] || 'Google User';
+
+    // Query profile in Supabase profiles table
+    const { data: rawProfile } = await client
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+
+    const profile = rawProfile as any;
+
+    let userProfile: UserProfile;
+
+    const isSuperAdminEmail = email.toLowerCase() === 'waelvts@gmail.com';
+
+    if (profile) {
+      userProfile = {
+        id: profile.id,
+        email: profile.email,
+        fullName: profile.full_name || fullName,
+        role: isSuperAdminEmail ? 'admin' : ((profile.role === 'merchant' || profile.role === 'admin' ? profile.role : 'user') as any),
+        subRole: isSuperAdminEmail ? 'super_admin' : (profile.sub_role || 'citizen'),
+        subRoleTitle: isSuperAdminEmail ? 'المدير المباشر والأدمن الرئيسي (Super Admin)' : (profile.sub_role_title || ''),
+        createdAt: profile.created_at || new Date().toISOString()
+      };
+    } else {
+      // Auto-create profile in Supabase for Google OAuth user
+      const newId = user.id || 'user-' + Date.now();
+      const defaultRole = isSuperAdminEmail ? 'admin' : 'user';
+      const defaultSubRole = isSuperAdminEmail ? 'super_admin' : 'citizen';
+      const defaultSubRoleTitle = isSuperAdminEmail ? 'المدير المباشر والأدمن الرئيسي (Super Admin)' : 'مستخدم ممتاز (Google Auth)';
+
+      userProfile = {
+        id: newId,
+        email: email,
+        fullName: fullName,
+        role: defaultRole,
+        subRole: defaultSubRole,
+        subRoleTitle: defaultSubRoleTitle,
+        createdAt: new Date().toISOString()
+      };
+
+      try {
+        await (client.from('profiles') as any).upsert({
+          id: newId,
+          email: email,
+          role: defaultRole,
+          sub_role: defaultSubRole,
+          sub_role_title: defaultSubRoleTitle,
+          full_name: fullName,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      } catch (upsertErr) {
+        console.warn('Could not auto-upsert Google OAuth profile:', upsertErr);
+      }
+    }
+
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(userProfile));
+    } catch (e) {}
+
+    return userProfile;
+  } catch (err) {
+    console.warn('Error fetching Google OAuth user profile:', err);
+    return null;
+  }
 }
 
 export async function signOutFromSupabase(): Promise<void> {

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useApp } from '../services/AppContext';
 import { translations } from '../services/translations';
 import { QRCodeFormSchema, QRCodeFormValues, LandmarkCategory, ContactSection } from '../types';
+import { uploadToCloudinary, isCloudinaryConfigured, getCloudinaryOptimizedUrl } from '../services/cloudinary';
+import { MediaCompressorUpload } from '../components/MediaCompressorUpload';
 import { 
   Sparkles, 
   MapPin, 
@@ -16,7 +18,10 @@ import {
   Phone,
   MessageCircle,
   Clock,
-  PhoneCall
+  PhoneCall,
+  Upload,
+  Loader2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -29,6 +34,42 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
   const t = translations[language];
 
   // Form State
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [mediaUploadError, setMediaUploadError] = useState('');
+
+  const handleMediaFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingMedia(true);
+    setUploadProgress(10);
+    setMediaUploadError('');
+
+    try {
+      if (isCloudinaryConfigured()) {
+        const res = await uploadToCloudinary(file, (percent) => setUploadProgress(percent));
+        const finalUrl = getCloudinaryOptimizedUrl(res.secureUrl, 1000);
+        setFormData(prev => ({ ...prev, imageUrl: finalUrl }));
+      } else {
+        // Fallback to local Data URL reader
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const result = event.target?.result as string;
+          setFormData(prev => ({ ...prev, imageUrl: result }));
+          setIsUploadingMedia(false);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      setMediaUploadError(err?.message || 'فشل رفع الملف إلى Cloudinary');
+    } finally {
+      setIsUploadingMedia(false);
+    }
+  };
+
   const [formData, setFormData] = useState({
     titleAr: '',
     titleEn: '',
@@ -254,7 +295,7 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
       <div className="lg:col-span-2 space-y-6">
         <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-950 relative overflow-hidden">
           {/* Top colored line indicator */}
-          <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
+          <div className="absolute top-0 left-0 w-full h-0.5 animated-glow-line"></div>
           
           <div className="flex items-center justify-between mb-2 mt-2 gap-2">
             <h2 className="text-xl font-black tracking-tighter text-[#D4AF37] flex items-center gap-2">
@@ -633,21 +674,15 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-zinc-400 font-semibold">
-                    {language === 'ar' ? 'رابط صورة الإعلان (URL)' : 'Offer Image URL'}
-                  </label>
-                  <input
-                    type="url"
-                    name="imageUrl"
-                    value={formData.imageUrl}
-                    onChange={handleInputChange}
-                    placeholder="https://images.unsplash.com/..."
-                    className="w-full rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-white outline-none focus:border-[#D4AF37]"
+                <div className="space-y-1.5 md:col-span-2">
+                  <MediaCompressorUpload
+                    language={language}
+                    initialUrl={formData.imageUrl}
+                    onMediaUploaded={(url) => setFormData(prev => ({ ...prev, imageUrl: url }))}
                   />
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 md:col-span-2">
                   <label className="block text-zinc-400 font-semibold">
                     {language === 'ar' ? 'تاريخ انتهاء صلاحية العرض' : 'Offer Expiration Date'}
                   </label>
@@ -679,7 +714,7 @@ export const QRGenerator: React.FC<QRGeneratorProps> = ({ onNavigate }) => {
       <div className="space-y-6">
         <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-950 text-center flex flex-col items-center justify-center space-y-6 relative overflow-hidden">
           {/* Top colored line indicator */}
-          <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
+          <div className="absolute top-0 left-0 w-full h-0.5 animated-glow-line"></div>
           
           <div className="absolute top-0 right-0 w-24 h-24 bg-[#D4AF37]/5 rounded-bl-full pointer-events-none" />
           

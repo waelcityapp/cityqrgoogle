@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, 
@@ -22,43 +22,73 @@ import {
   LayoutDashboard, 
   Compass,
   UserCheck,
-  Building2
+  Building2,
+  Crown,
+  Award,
+  Briefcase,
+  Wallet,
+  Share2,
+  Copy,
+  Coins,
+  TrendingUp,
+  ArrowUpRight,
+  Gift,
+  DollarSign,
+  BadgePercent,
+  Bell,
+  Star
 } from 'lucide-react';
 import { useApp } from '../services/AppContext';
 
-// Sub-roles definition for User accounts
+// Sub-roles definition for User accounts with Affiliate Rights & Subscription Plans
 const USER_SUB_ROLES = [
   {
-    id: 'tourist',
-    icon: Compass,
-    titleAr: 'زائر / سائح واستكشاف',
-    titleEn: 'Tourist / Explorer',
-    descAr: 'استكشاف المعالم والفعاليات ومسح رموز QR للحصول على العروض الترويجية والخرائط.',
-    descEn: 'Explore landmarks, scan tourist QRs, and discover exclusive maps and promotions.'
-  },
-  {
     id: 'citizen',
-    icon: Shield,
-    titleAr: 'مواطن / مقيم محلي',
-    titleEn: 'Citizen / Resident',
-    descAr: 'الوصول السريع للخدمات المحلية والبلدية وأرقام الطوارئ والمرافق العامة المباشرة.',
-    descEn: 'Instant access to local government portals, municipal services, and emergency numbers.'
+    icon: Star,
+    titleAr: 'مستخدم مميز (Standard / Premium)',
+    titleEn: 'Premium User',
+    descAr: 'الوصول لجميع الخدمات الأساسية والمرافق العامة والعروض الترويجية في مدينتك مجاناً.',
+    descEn: 'Full free access to essential city services, public utilities, and promotional offers.',
+    priceAr: 'مجاني',
+    priceEn: 'Free',
+    commission: 0,
+    isPremium: false
   },
   {
     id: 'vip_deal_hunter',
     icon: Sparkles,
-    titleAr: 'باحث عن عروض VIP',
-    titleEn: 'VIP Deal Hunter',
-    descAr: 'الوصول الحصري لخصومات الشركاء التجاريين وكوبونات المتاجر والمطاعم المعتمدة.',
-    descEn: 'Exclusive access to partner discounts, verified store coupons, and VIP rewards.'
+    titleAr: 'عضوية VIP (صائد العروض والمكافآت)',
+    titleEn: 'VIP Deal Hunter Member',
+    descAr: 'خصومات الشركاء التجاريين + حق التسويق بالعمولة (15%) عبر رابطك الخاص + محفظة أرباح.',
+    descEn: 'VIP partner discounts + Affiliate marketing rights (15% commission) + Digital earnings wallet.',
+    priceAr: '150 ج.م / شهر',
+    priceEn: '$10 / mo',
+    commission: 15,
+    isPremium: true
   },
   {
-    id: 'volunteer',
-    icon: UserCheck,
-    titleAr: 'متطوع ميداني ومراقب',
-    titleEn: 'Field Volunteer & Verifier',
-    descAr: 'المساعدة في التحقق من صحة مواقع المعالم وتحديث بيانات المرافق العامة والملاحة.',
-    descEn: 'Help verify landmark accuracy, report public facility status, and assist community navigation.'
+    id: 'first_class',
+    icon: Award,
+    titleAr: 'عضوية الدرجة الأولى (First Class VIP)',
+    titleEn: 'First Class VIP Member',
+    descAr: 'مزايا VIP المضاعفة + حق التسويق بالعمولة (25%) على اشتراكات وتجديد التجار + أولوية الدعم.',
+    descEn: 'Double VIP perks + Affiliate marketing rights (25% commission on merchant signups & renewals).',
+    priceAr: '350 ج.م / شهر',
+    priceEn: '$25 / mo',
+    commission: 25,
+    isPremium: true
+  },
+  {
+    id: 'business_class',
+    icon: Crown,
+    titleAr: 'عضوية رجال الأعمال (Business Class Elite)',
+    titleEn: 'Business Class Elite Member',
+    descAr: 'أعلى باقات النخبة + حق التسويق بالعمولة (40%) على الاشتراكات والتجديد + سحب فوري + شعار مخصص.',
+    descEn: 'Elite tier + Highest affiliate commission (40%) + Instant payout + Custom QR branding.',
+    priceAr: '750 ج.م / شهر',
+    priceEn: '$50 / mo',
+    commission: 40,
+    isPremium: true
   }
 ];
 
@@ -112,11 +142,35 @@ interface AccountAuthProps {
 }
 
 export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMode }) => {
-  const { language, currentUser, loginUser, registerUser, logoutUser, switchUserRole, supabaseActive } = useApp();
+  const { language, currentUser, loginUser, loginWithGoogle, registerUser, logoutUser, switchUserRole, supabaseActive } = useApp();
+
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const result = await loginWithGoogle();
+      if (result?.error) {
+        setErrorMsg(result.error);
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || (language === 'ar' ? 'فشل بدء عملية تسجيل الدخول بحساب جوجل' : 'Failed to start Google sign-in'));
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const authContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToContainer = () => {};
 
   const [authMode, setAuthMode] = useState<'signup' | 'signin'>(initialMode || 'signin');
   const [selectedRole, setSelectedRole] = useState<'user' | 'merchant'>('user');
-  const [selectedSubRole, setSelectedSubRole] = useState<string>('tourist');
+  const [selectedSubRole, setSelectedSubRole] = useState<string>('citizen');
+  const [hasSelectedRegistrationType, setHasSelectedRegistrationType] = useState<boolean>(false);
+  const [hasSelectedMainRole, setHasSelectedMainRole] = useState<boolean>(false);
   
   useEffect(() => {
     if (initialMode) {
@@ -133,6 +187,104 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Affiliate & Wallet Simulation State
+  const [walletBalance, setWalletBalance] = useState<number>(() => {
+    const saved = localStorage.getItem('cityqr_wallet_balance');
+    return saved ? parseFloat(saved) : 1450.00;
+  });
+  const [walletHistory, setWalletHistory] = useState<Array<{ id: string; titleAr: string; titleEn: string; amount: number; date: string; type: string }>>(() => {
+    const saved = localStorage.getItem('cityqr_wallet_history');
+    return saved ? JSON.parse(saved) : [
+      { id: '1', titleAr: 'عمولة اشتراك مطعم وكافيه البحر (15%)', titleEn: 'Commission: Sea Breeze Restaurant Signup (15%)', amount: 350, date: '2026-07-04', type: 'commission' },
+      { id: '2', titleAr: 'عمولة تجديد اشتراك فندق كمبينسكي (25%)', titleEn: 'Commission: Kempinski Hotel Renewal (25%)', amount: 500, date: '2026-07-03', type: 'renewal' },
+      { id: '3', titleAr: 'مكافأة ترحيبية لعضوية النخبة', titleEn: 'Elite Tier Welcome Bonus', amount: 600, date: '2026-07-01', type: 'bonus' }
+    ];
+  });
+  const [copiedRef, setCopiedRef] = useState(false);
+  const [payoutModalOpen, setPayoutModalOpen] = useState(false);
+  const [payoutMethod, setPayoutMethod] = useState<'vodafone' | 'instapay' | 'bank'>('vodafone');
+  const [payoutAccount, setPayoutAccount] = useState('');
+  const [payoutSuccess, setPayoutSuccess] = useState(false);
+
+  const [personalNotifs, setPersonalNotifs] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('cityqr_app_notifications') || localStorage.getItem('cityqr_broadcast_notifications');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [
+      {
+        id: 101,
+        titleAr: '🔥 خصم 50% حصري لأعضاء VIP والدرجة الأولى في مطعم هافور!',
+        titleEn: '🔥 Exclusive 50% VIP & First Class Discount at Havur Restaurant!',
+        descAr: 'تم تفعيل كود خصم خاص لأعضاء باقات النخبة المشتركين. استمتع بوجبتك الآن!',
+        descEn: 'Special promo code activated for subscribed elite tier members. Enjoy your meal now!',
+        timeAr: 'منذ ساعتين',
+        timeEn: '2 hours ago',
+        targetTiers: ['vip_deal_hunter', 'first_class'],
+        priority: 'golden'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    const checkStorage = () => {
+      try {
+        const saved = localStorage.getItem('cityqr_app_notifications') || localStorage.getItem('cityqr_broadcast_notifications');
+        if (saved) setPersonalNotifs(JSON.parse(saved));
+      } catch (e) {}
+    };
+    window.addEventListener('storage', checkStorage);
+    return () => window.removeEventListener('storage', checkStorage);
+  }, []);
+
+  const myTargetedNotifs = currentUser ? personalNotifs.filter(n => {
+    const userRole = currentUser.subRole || currentUser.role || 'citizen';
+    return n.targetTiers?.includes('all') || n.targetTiers?.includes(userRole);
+  }) : [];
+
+  const handleSimulateCommission = (titleAr: string, titleEn: string, amount: number) => {
+    const newBalance = walletBalance + amount;
+    setWalletBalance(newBalance);
+    localStorage.setItem('cityqr_wallet_balance', newBalance.toString());
+    
+    const newTx = {
+      id: Date.now().toString(),
+      titleAr,
+      titleEn,
+      amount,
+      date: new Date().toISOString().split('T')[0],
+      type: 'commission'
+    };
+    const updatedHistory = [newTx, ...walletHistory];
+    setWalletHistory(updatedHistory);
+    localStorage.setItem('cityqr_wallet_history', JSON.stringify(updatedHistory));
+    setSuccessMsg(language === 'ar' ? `🎉 تم احتساب عمولة تسويق جديدة بقيمة +${amount} ج.م لمحفظتك بنجاح!` : `🎉 Added +${amount} EGP affiliate commission to your wallet!`);
+  };
+
+  const handleRequestPayout = () => {
+    if (!payoutAccount || walletBalance <= 0) return;
+    const payoutAmount = walletBalance;
+    setWalletBalance(0);
+    localStorage.setItem('cityqr_wallet_balance', '0');
+    const newTx = {
+      id: Date.now().toString(),
+      titleAr: `طلب سحب رصيد عبر ${payoutMethod === 'vodafone' ? 'فودافون كاش' : payoutMethod === 'instapay' ? 'انستاباي' : 'تحويل بنكي'} (${payoutAccount})`,
+      titleEn: `Payout Request via ${payoutMethod.toUpperCase()} (${payoutAccount})`,
+      amount: -payoutAmount,
+      date: new Date().toISOString().split('T')[0],
+      type: 'payout'
+    };
+    const updatedHistory = [newTx, ...walletHistory];
+    setWalletHistory(updatedHistory);
+    localStorage.setItem('cityqr_wallet_history', JSON.stringify(updatedHistory));
+    setPayoutSuccess(true);
+    setTimeout(() => {
+      setPayoutSuccess(false);
+      setPayoutModalOpen(false);
+      setPayoutAccount('');
+    }, 3000);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,8 +314,8 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
         } else {
           setSuccessMsg(
             language === 'ar'
-              ? `تم إنشاء الحساب بنجاح وربطه مع قاعدة بيانات Supabase! تم إضافة ملف التعريف في جدول 'profiles' بصلاحية: [${selectedRole === 'merchant' ? 'تاجر / شريك تجاري' : 'مستخدم / عميل'}]`
-              : `Account successfully created and linked to Supabase! Added to 'profiles' table with role: [${selectedRole.toUpperCase()}]`
+              ? 'تم إنشاء الحساب بنجاح وتفعيل عضويتك في منصة CityQR!'
+              : 'Account successfully created and your membership is now active!'
           );
           // Clear sensitive fields
           setPassword('');
@@ -175,8 +327,8 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
         } else {
           setSuccessMsg(
             language === 'ar'
-              ? 'تم تسجيل الدخول بنجاح! تم استرجاع صلاحياتك المخصصة من قاعدة البيانات.'
-              : 'Logged in successfully! Retrieved your custom permissions from the database.'
+              ? 'تم تسجيل الدخول بنجاح! مرحباً بك في حسابك المخصص.'
+              : 'Logged in successfully! Welcome to your account.'
           );
           setPassword('');
         }
@@ -188,73 +340,19 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
     }
   };
 
-  const handleFillDemo = (type: 'merchant' | 'user') => {
-    if (type === 'merchant') {
-      setEmail('merchant@cityqr.com');
-      setPassword('merchant123456');
-      setFullName('شركة هافور التجارية');
-      setSelectedRole('merchant');
-      setSelectedSubRole('restaurant');
-    } else {
-      setEmail('citizen@cityqr.com');
-      setPassword('user123456');
-      setFullName('أحمد العتيبي');
-      setSelectedRole('user');
-      setSelectedSubRole('tourist');
-    }
-    setErrorMsg(null);
-    setSuccessMsg(
-      language === 'ar'
-        ? `تم تعبئة بيانات تجريبية لحساب (${type === 'merchant' ? 'تاجر' : 'عميل'}). يمكنك الضغط على تنفيذ الآن.`
-        : `Filled demo credentials for (${type.toUpperCase()}). You can click submit now.`
-    );
-  };
+  const matchedSubObj = (selectedRole === 'merchant' ? MERCHANT_SUB_ROLES : USER_SUB_ROLES).find(s => s.id === selectedSubRole);
+  const subTitleAr = matchedSubObj ? matchedSubObj.titleAr : '';
+  const subTitleEn = matchedSubObj ? matchedSubObj.titleEn : '';
+  const formTitleAr = selectedRole === 'merchant' 
+    ? `إنشاء حساب تاجر (${subTitleAr})` 
+    : `إنشاء حساب مستخدم (${subTitleAr})`;
+  const formTitleEn = selectedRole === 'merchant'
+    ? `Create Merchant Account (${subTitleEn})`
+    : `Create User Account (${subTitleEn})`;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fade-in py-4 px-2 sm:px-4">
       
-      {/* Top Header & Supabase Indicator Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-8 shadow-2xl">
-        <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
-        
-        <div className="absolute top-0 right-0 w-80 h-80 bg-[#8B0000]/10 rounded-full blur-3xl pointer-events-none -z-10" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#D4AF37]/10 rounded-full blur-3xl pointer-events-none -z-10" />
-
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37] text-xs font-bold font-mono">
-              <Database className="w-3.5 h-3.5" />
-              <span>{language === 'ar' ? 'ربط الصلاحيات مع Supabase Profiles' : 'Supabase Profiles Role Sync'}</span>
-            </div>
-            
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
-              <Shield className="w-8 h-8 text-[#D4AF37]" />
-              <span>{language === 'ar' ? 'بوابة الحسابات والصلاحيات المخصصة' : 'Accounts & Dedicated Role Permissions'}</span>
-            </h1>
-            
-            <p className="text-xs sm:text-sm text-zinc-400 max-w-2xl leading-relaxed">
-              {language === 'ar'
-                ? 'قم بإنشاء حساب جديد أو تسجيل الدخول لربط الصلاحيات مع قاعدة بيانات Supabase. يتم حفظ حقل role في جدول profiles لتحديد إمكانية الوصول للوحة التاجر أو عميل المسح.'
-                : 'Create an account or log in to link role permissions with Supabase database. The role field is stored in the profiles table to manage access to Merchant Dashboard vs Customer Scanner.'}
-            </p>
-          </div>
-
-          {/* Connection badge */}
-          <div className="flex flex-col items-start md:items-end gap-2 bg-zinc-900/80 p-4 rounded-2xl border border-zinc-800/80 shrink-0">
-            <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase tracking-widest">
-              {language === 'ar' ? 'حالة المزامنة السحابية' : 'CLOUD DATABASE SYNC'}
-            </span>
-            <div className="flex items-center gap-2">
-              <span className={`w-2.5 h-2.5 rounded-full ${supabaseActive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-              <span className="text-xs font-bold text-zinc-200">
-                {supabaseActive 
-                  ? (language === 'ar' ? 'متصل بجدول profiles في Supabase' : 'Connected to Supabase profiles')
-                  : (language === 'ar' ? 'وضع التخزين المحلي الاحتياطي (Offline)' : 'Offline Local Fallback Mode')}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* LOGGED IN VIEW: User Profile & Custom Permissions Dashboard */}
       {currentUser ? (
@@ -265,7 +363,7 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
         >
           {/* Main User Card */}
           <div className="relative overflow-hidden rounded-3xl border-2 border-[#D4AF37]/40 bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-950 p-6 sm:p-8 shadow-2xl">
-            <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
+            <div className="absolute top-0 left-0 w-full h-0.5 animated-glow-line"></div>
 
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
               <div className="flex items-start gap-5">
@@ -325,154 +423,374 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
               </div>
             </div>
 
-            {/* Supabase Profiles Sync Confirmation Badge */}
-            <div className="mt-6 pt-5 border-t border-zinc-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800/50">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                <div className="text-xs">
-                  <p className="font-bold text-zinc-200">
-                    {language === 'ar' 
-                      ? `تم ربط الحساب بنجاح في جدول profiles مع الصلاحية المخصصة:`
-                      : `Account successfully linked in 'profiles' table with role:`}
-                  </p>
-                  <p className="text-zinc-400 font-mono mt-0.5">
-                    table: <code className="text-[#D4AF37]">profiles</code> | field: <code className="text-emerald-400">role = '{currentUser.role}'</code> | status: <code className="text-emerald-400">SYNCED</code>
+          </div>
+
+          {/* 📬 PERSONAL MEMBER NOTIFICATIONS INBOX (صندوق إشعارات الحساب الشخصي الموجهة حسب الفئة) */}
+          <div className="rounded-3xl border-2 border-amber-500/60 bg-gradient-to-b from-zinc-900/95 via-zinc-950 to-black p-6 sm:p-8 shadow-[0_0_35px_rgba(245,158,11,0.2)] relative overflow-hidden space-y-5">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/80 pb-4">
+              <div className="flex items-center gap-3.5">
+                <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 text-zinc-950 shadow-lg shrink-0 relative">
+                  <Bell className="w-6 h-6 stroke-[2.5]" />
+                  {myTargetedNotifs.length > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 text-white rounded-full text-[10px] font-black flex items-center justify-center border-2 border-zinc-950 animate-bounce">
+                      {myTargetedNotifs.length}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-lg sm:text-xl font-black text-white">
+                      {language === 'ar' ? 'صندوق الإشعارات والعروض الخاصة بعضويتك' : 'My Personal VIP Member Inbox'}
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black uppercase tracking-wider">
+                      {currentUser.subRoleTitle || currentUser.subRole || (language === 'ar' ? 'عضوية قياسية' : 'Standard Member')}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    {language === 'ar'
+                      ? 'هنا تصلك الإشعارات والرسائل الترويجية الموجهة حصرياً لحسابك ولفئة عضويتك المحددة.'
+                      : 'Exclusive notifications and promotional alerts targeted specifically to your account and tier.'}
                   </p>
                 </div>
               </div>
 
-              {/* Quick Role Switcher for testing */}
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <span className="text-[11px] text-zinc-400 whitespace-nowrap font-bold">
-                  {language === 'ar' ? 'تبديل الصلاحية للاختبار:' : 'Switch Role for Test:'}
+              <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                <span className="px-3 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-mono font-bold text-amber-400">
+                  📬 {myTargetedNotifs.length} {language === 'ar' ? 'رسالة جديدة' : 'New Alert(s)'}
                 </span>
-                <div className="flex bg-zinc-950 p-1 rounded-xl border border-zinc-800 w-full sm:w-auto">
-                  <button
-                    onClick={() => switchUserRole('user')}
-                    className={`flex-1 sm:flex-none px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                      currentUser.role === 'user' 
-                        ? 'bg-emerald-500 text-zinc-950 shadow-md' 
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    User
-                  </button>
-                  <button
-                    onClick={() => switchUserRole('merchant')}
-                    className={`flex-1 sm:flex-none px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                      currentUser.role === 'merchant' || currentUser.role === 'admin'
-                        ? 'bg-[#D4AF37] text-zinc-950 shadow-md' 
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Merchant
-                  </button>
+              </div>
+            </div>
+
+            {myTargetedNotifs.length > 0 ? (
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                {myTargetedNotifs.map((n) => (
+                  <div key={n.id} className="p-4 rounded-2xl bg-zinc-950/90 border border-amber-500/30 hover:border-amber-500/60 transition shadow-md flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                        <h4 className="font-black text-sm text-white">
+                          {language === 'ar' ? n.titleAr : n.titleEn}
+                        </h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {n.priority === 'golden' && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            ✨ {language === 'ar' ? 'عرض ذهبي' : 'Golden Offer'}
+                          </span>
+                        )}
+                        {n.priority === 'urgent' && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-red-500/20 text-red-400 border border-red-500/40">
+                            🚨 {language === 'ar' ? 'تنبيه هام' : 'Urgent Alert'}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-zinc-500 font-mono">{language === 'ar' ? n.timeAr : n.timeEn}</span>
+                      </div>
+                    </div>
+                    
+                    <p className="text-xs text-zinc-300 leading-relaxed pl-4 border-l-2 border-amber-500/40 py-0.5">
+                      {language === 'ar' ? n.descAr : n.descEn}
+                    </p>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-zinc-900 text-[10px] text-zinc-500 font-mono">
+                      <span>🎯 {language === 'ar' ? 'موجه إلى فئة:' : 'Targeted Tier:'} <strong className="text-amber-400">{currentUser.subRoleTitle || currentUser.subRole || 'VIP'}</strong></span>
+                      <span className="text-emerald-400 font-bold">✓ {language === 'ar' ? 'تم التسليم لحسابك الشخصي' : 'Delivered to your personal inbox'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 rounded-2xl bg-zinc-950/60 border border-zinc-800/80 text-center space-y-2">
+                <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto text-zinc-500">
+                  <Bell className="w-6 h-6" />
+                </div>
+                <p className="text-sm font-bold text-zinc-300">
+                  {language === 'ar' ? 'لا توجد رسائل أو إشعارات جديدة موجهة لحسابك حالياً' : 'No new notifications targeted to your account at this time'}
+                </p>
+                <p className="text-xs text-zinc-500">
+                  {language === 'ar' ? 'ستظهر هنا الخصومات والعروض الترويجية الحصرية فور بثها لفئة عضويتك المحددة.' : 'Exclusive promotional offers and discounts will appear here once broadcasted to your membership tier.'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 🌟 VIP AFFILIATE MARKETING & DIGITAL WALLET SYSTEM */}
+          <div className="rounded-3xl border-2 border-amber-500/50 bg-gradient-to-b from-zinc-900/90 via-zinc-950 to-black p-6 sm:p-8 shadow-[0_0_40px_rgba(245,158,11,0.15)] relative overflow-hidden space-y-6">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none"></div>
+            
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/80 pb-5">
+              <div className="flex items-center gap-4">
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 text-zinc-950 shadow-lg shrink-0">
+                  <Wallet className="w-7 h-7 stroke-[2.5]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-black text-white">
+                      {language === 'ar' ? 'نظام التسويق بالعمولة والمحفظة الرقمية (VIP Affiliate & Wallet)' : 'VIP Affiliate Marketing & Digital Wallet'}
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black uppercase tracking-wider animate-pulse">
+                      {language === 'ar' ? 'نظام الأرباح النشط' : 'LIVE EARNINGS'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    {language === 'ar'
+                      ? 'اربح عمولات مستمرة عند اشتراك أو تجديد أي تاجر أو منشأة تجارية عبر رابط الترويج الخاص بك.'
+                      : 'Earn continuous recurring commissions whenever a merchant subscribes or renews through your link.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Monthly Subscription Badge */}
+              <div className="bg-zinc-900/90 border border-amber-500/30 rounded-2xl p-3 px-4 flex items-center gap-3 shrink-0">
+                <Crown className="w-5 h-5 text-amber-400 shrink-0" />
+                <div className="text-left rtl:text-right">
+                  <span className="text-[10px] text-zinc-400 uppercase font-extrabold block">
+                    {language === 'ar' ? 'حالة الاشتراك الشهري' : 'Monthly Plan Status'}
+                  </span>
+                  <span className="text-xs font-black text-amber-300">
+                    {currentUser.subRole === 'business_class' ? (language === 'ar' ? ' رجال الأعمال (750 ج.م/شهر)' : ' Business Class ($50/mo)')
+                      : currentUser.subRole === 'first_class' ? (language === 'ar' ? ' الدرجة الأولى (350 ج.م/شهر)' : ' First Class ($25/mo)')
+                      : currentUser.subRole === 'vip_deal_hunter' ? (language === 'ar' ? ' عضوية VIP (150 ج.م/شهر)' : ' VIP Member ($10/mo)')
+                      : (language === 'ar' ? ' باقة مجانية (ارتقِ لـ VIP للكسب)' : ' Free Tier (Upgrade to Earn)')}
+                  </span>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Dedicated Permissions & Quick Navigation Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Merchant Dashboard Access Card */}
-            <div className={`p-6 rounded-3xl border-2 transition-all duration-300 relative overflow-hidden ${
-              currentUser.role === 'merchant' || currentUser.role === 'admin'
-                ? 'border-[#D4AF37]/60 bg-gradient-to-br from-zinc-900 to-black shadow-[0_0_30px_rgba(212,175,55,0.15)]'
-                : 'border-zinc-800/80 bg-zinc-950/60 opacity-60 hover:opacity-100'
-            }`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-xl bg-[#8B0000]/20 border border-[#D4AF37]/30 text-[#D4AF37]">
-                  <Store className="w-6 h-6" />
+            {/* Wallet Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Balance */}
+              <div className="p-5 rounded-2xl bg-zinc-950 border border-amber-500/30 relative overflow-hidden flex flex-col justify-between">
+                <div className="flex items-center justify-between text-zinc-400 text-xs font-bold mb-2">
+                  <span>{language === 'ar' ? 'الرصيد المتاح للسحب' : 'Available Wallet Balance'}</span>
+                  <Coins className="w-4 h-4 text-amber-400" />
                 </div>
-                {currentUser.role === 'merchant' || currentUser.role === 'admin' ? (
-                  <span className="px-3 py-1 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/40 text-xs font-bold flex items-center gap-1.5">
-                    <Check className="w-3.5 h-3.5" />
-                    <span>{language === 'ar' ? 'صلاحية نشطة ومتاحة' : 'Active Permission'}</span>
-                  </span>
-                ) : (
-                  <span className="px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-bold">
-                    {language === 'ar' ? 'يتطلب صلاحية تاجر' : 'Requires Merchant Role'}
-                  </span>
-                )}
+                <div className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight my-1">
+                  {walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-sans text-amber-400">{language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                </div>
+                <button
+                  onClick={() => setPayoutModalOpen(true)}
+                  disabled={walletBalance <= 0}
+                  className="mt-3 w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-md"
+                >
+                  <ArrowUpRight className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>{language === 'ar' ? 'طلب سحب الأرباح' : 'Request Payout'}</span>
+                </button>
               </div>
 
-              <h3 className="text-lg font-black text-white mb-2">
-                {language === 'ar' ? 'صلاحيات التاجر والشركاء (Merchant Capabilities)' : 'Merchant Partner Capabilities'}
-              </h3>
-              
-              <ul className="space-y-2 mb-6 text-xs text-zinc-300">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
-                  <span>{language === 'ar' ? 'إضافة وإدارة قائمة المنتجات والخدمات والمرافق' : 'Add & manage items, products, and services'}</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
-                  <span>{language === 'ar' ? 'توليد رموز QR مخصصة للتحميل والطباعة فوراً' : 'Generate custom printable QR codes instantly'}</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
-                  <span>{language === 'ar' ? 'متابعة إحصائيات المسح وزيارات العملاء مباشرة' : 'Monitor real-time scan analytics & visitor traffic'}</span>
-                </li>
-              </ul>
+              {/* Commission Rate */}
+              <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-zinc-400 text-xs font-bold mb-2">
+                  <span>{language === 'ar' ? 'نسبة العمولة الخاصة بك' : 'Your Commission Rate'}</span>
+                  <BadgePercent className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono my-1">
+                  {currentUser.subRole === 'business_class' ? '40%' : currentUser.subRole === 'first_class' ? '25%' : currentUser.subRole === 'vip_deal_hunter' ? '15%' : '15%'}
+                  <span className="text-xs font-sans text-zinc-400 ml-1.5 font-bold">
+                    {language === 'ar' ? 'على كل اشتراك/تجديد' : 'per signup/renewal'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-500 font-medium">
+                  {language === 'ar' ? 'عمولة دائمة تتجدد تلقائياً عند قيام التاجر بسداد الاشتراك الشهري أو السنوي.' : 'Recurring commission applied automatically on every merchant renewal.'}
+                </p>
+              </div>
 
-              <div className="flex pt-4 border-t border-zinc-800/80">
+              {/* Total Referrals */}
+              <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-zinc-400 text-xs font-bold mb-2">
+                  <span>{language === 'ar' ? 'المتاجر والمنشآت المشتركة' : 'Active Referred Merchants'}</span>
+                  <TrendingUp className="w-4 h-4 text-sky-400" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-black text-white font-mono my-1">
+                  {walletHistory.filter(h => h.type === 'commission' || h.type === 'renewal').length + 12}
+                  <span className="text-xs font-sans text-sky-400 ml-1.5 font-bold">{language === 'ar' ? 'منشأة تجارية' : 'Merchants'}</span>
+                </div>
+                <p className="text-[11px] text-zinc-500 font-medium">
+                  {language === 'ar' ? 'يتم احتساب الأرباح فور تفعيل حساب التاجر بنظام الدفع الإلكتروني.' : 'Earnings credited instantly upon merchant payment confirmation.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Referral Link Box */}
+            <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                  <Share2 className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{language === 'ar' ? 'رابط التسويق الترويجي الخاص بك (Affiliate Referral Link):' : 'Your Unique Marketing Referral Link:'}</span>
+                </label>
+                <div className="font-mono text-xs text-amber-300 bg-zinc-900/90 px-3 py-1.5 rounded-lg border border-amber-500/20 break-all">
+                  https://cityqr.app/join?ref={currentUser.subRole || 'VIP'}-{currentUser.id.substring(0, 6).toUpperCase()}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={() => onNavigate?.('dashboard')}
-                  disabled={currentUser.role !== 'merchant' && currentUser.role !== 'admin'}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] to-amber-600 hover:brightness-110 text-zinc-950 font-black text-xs shadow-lg transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`https://cityqr.app/join?ref=${currentUser.subRole || 'VIP'}-${currentUser.id.substring(0, 6).toUpperCase()}`);
+                    setCopiedRef(true);
+                    setTimeout(() => setCopiedRef(false), 2500);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs flex items-center gap-2 transition cursor-pointer border border-zinc-700"
                 >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span>{language === 'ar' ? 'دخول بوابة التاجر والشركاء (لوحة التحكم)' : 'Open Merchant & Partner Portal'}</span>
+                  {copiedRef ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  <span>{copiedRef ? (language === 'ar' ? 'تم النسخ!' : 'Copied!') : (language === 'ar' ? 'نسخ الرابط' : 'Copy Link')}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const shareText = language === 'ar' ? `سجل الآن في منصة CityQR عبر رابطي الترويجي للحصول على عروض ومزايا حصرية: https://cityqr.app/join?ref=${currentUser.subRole || 'VIP'}-${currentUser.id.substring(0, 6).toUpperCase()}` : `Join CityQR using my referral link for exclusive rewards: https://cityqr.app/join?ref=${currentUser.subRole || 'VIP'}-${currentUser.id.substring(0, 6).toUpperCase()}`;
+                    if (navigator.share) {
+                      navigator.share({ title: 'CityQR Affiliate Referral', text: shareText });
+                    } else {
+                      window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+                    }
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 transition cursor-pointer shadow-md"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>{language === 'ar' ? 'مشاركة (واتساب / سوشيال)' : 'Share via WA'}</span>
                 </button>
               </div>
             </div>
 
-            {/* Customer Scanner Access Card */}
-            <div className={`p-6 rounded-3xl border-2 transition-all duration-300 relative overflow-hidden ${
-              currentUser.role === 'user' || currentUser.role === 'citizen' || currentUser.role === 'visitor'
-                ? 'border-emerald-500/60 bg-gradient-to-br from-zinc-900 to-black shadow-[0_0_30px_rgba(16,185,129,0.15)]'
-                : 'border-zinc-800/80 bg-zinc-950/60 opacity-60 hover:opacity-100'
-            }`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                  <User className="w-6 h-6" />
-                </div>
-                <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5" />
-                  <span>{language === 'ar' ? 'صلاحية نشطة ومتاحة' : 'Active Permission'}</span>
-                </span>
-              </div>
 
-              <h3 className="text-lg font-black text-white mb-2">
-                {language === 'ar' ? 'صلاحيات العميل والمستخدم (Customer Capabilities)' : 'Customer & Visitor Capabilities'}
-              </h3>
-              
-              <ul className="space-y-2 mb-6 text-xs text-zinc-300">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>{language === 'ar' ? 'مسح رموز الاستجابة السريعة (QR) بالكاميرا أو الصور' : 'Scan QR codes via live camera or uploaded photos'}</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>{language === 'ar' ? 'استعراض تفاصيل العروض الحصرية والخصومات' : 'Explore exclusive offers, discounts, and store menus'}</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>{language === 'ar' ? 'الوصول السريع لبوابة الزوار والملاحة التفاعلية' : 'Instant navigation to visitor portal & landmarks'}</span>
-                </li>
-              </ul>
-
-              <div className="flex pt-4 border-t border-zinc-800/80">
-                <button
-                  onClick={() => onNavigate?.('landing')}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:brightness-110 text-white font-black text-xs shadow-lg transition cursor-pointer"
-                >
-                  <Compass className="w-4 h-4" />
-                  <span>{language === 'ar' ? 'الانتقال إلى بوابة الزوار والعروض' : 'Go to Visitor Portal & Offers'}</span>
-                </button>
+            {/* Recent Transactions Table */}
+            <div className="space-y-2 pt-2">
+              <h4 className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Coins className="w-3.5 h-3.5 text-zinc-500" />
+                <span>{language === 'ar' ? 'سجل العمليات والعمولات المكتسبة في محفظتك:' : 'Recent Wallet Transactions & Commissions:'}</span>
+              </h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {walletHistory.map((tx) => (
+                  <div key={tx.id} className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800/80 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg shrink-0 ${
+                        tx.type === 'payout' ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'
+                      }`}>
+                        {tx.type === 'payout' ? <ArrowUpRight className="w-4 h-4" /> : <Gift className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <p className="font-bold text-zinc-200">{language === 'ar' ? tx.titleAr : tx.titleEn}</p>
+                        <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{tx.date}</p>
+                      </div>
+                    </div>
+                    <span className={`font-mono font-black text-sm shrink-0 ${
+                      tx.amount > 0 ? 'text-emerald-400' : 'text-red-400'
+                    }`}>
+                      {tx.amount > 0 ? `+${tx.amount}` : tx.amount} {language === 'ar' ? 'ج.م' : 'EGP'}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
+
+          {/* Payout Modal */}
+          <AnimatePresence>
+            {payoutModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={() => setPayoutModalOpen(false)}>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-zinc-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6 relative"
+                >
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400">
+                        <Coins className="w-6 h-6" />
+                      </div>
+                      <h3 className="font-black text-lg text-white">
+                        {language === 'ar' ? 'سحب رصيد العمولات' : 'Withdraw Affiliate Earnings'}
+                      </h3>
+                    </div>
+                    <button onClick={() => setPayoutModalOpen(false)} className="text-zinc-400 hover:text-white text-sm font-bold">✕</button>
+                  </div>
+
+                  {payoutSuccess ? (
+                    <div className="py-8 text-center space-y-3">
+                      <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center border border-emerald-500/40 animate-bounce">
+                        <Check className="w-8 h-8 stroke-[3]" />
+                      </div>
+                      <h4 className="font-black text-lg text-white">
+                        {language === 'ar' ? 'تم إرسال طلب السحب بنجاح!' : 'Payout Request Submitted Successfully!'}
+                      </h4>
+                      <p className="text-xs text-zinc-400 leading-relaxed max-w-xs mx-auto">
+                        {language === 'ar'
+                          ? 'سيتم تحويل المبلغ إلى حسابك المسجل خلال 15 دقيقة تقريباً. ستصلك رسالة تأكيد SMS.'
+                          : 'The transfer will be credited to your account within ~15 minutes. An SMS confirmation will follow.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between">
+                        <span className="text-xs text-zinc-400 font-bold">{language === 'ar' ? 'المبلغ المطلوب سحبه:' : 'Amount to withdraw:'}</span>
+                        <span className="font-mono font-black text-xl text-amber-400">{walletBalance.toFixed(2)} {language === 'ar' ? 'ج.م' : 'EGP'}</span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-zinc-300 block">{language === 'ar' ? 'اختر وسيلة استلام الأرباح:' : 'Select Payout Method:'}</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { id: 'vodafone', label: language === 'ar' ? 'فودافون كاش' : 'Vodafone Cash' },
+                            { id: 'instapay', label: language === 'ar' ? 'انستاباي (InstaPay)' : 'InstaPay' },
+                            { id: 'bank', label: language === 'ar' ? 'تحويل بنكي' : 'Bank Wire' }
+                          ].map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => setPayoutMethod(m.id as any)}
+                              className={`p-2.5 rounded-xl border text-xs font-bold transition ${
+                                payoutMethod === m.id ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-md' : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
+                              }`}
+                            >
+                              {m.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-zinc-300 block">
+                          {payoutMethod === 'vodafone'
+                            ? (language === 'ar' ? 'رقم محفظة فودافون كاش / اتصالات:' : 'Vodafone Cash / Mobile Wallet Number:')
+                            : payoutMethod === 'instapay'
+                            ? (language === 'ar' ? 'عنوان انستاباي (InstaPay IPA / Mobile):' : 'InstaPay IPA Address / Mobile Number:')
+                            : (language === 'ar' ? 'رقم الحساب البنكي (IBAN):' : 'Bank Account IBAN / Account Number:')}
+                        </label>
+                        <input
+                          type="text"
+                          value={payoutAccount}
+                          onChange={(e) => setPayoutAccount(e.target.value)}
+                          placeholder={payoutMethod === 'vodafone' ? '010XXXXXXXX' : payoutMethod === 'instapay' ? 'name@instapay' : 'EGXX XXXX XXXX...'}
+                          className="w-full px-4 py-3 rounded-xl bg-zinc-950 border border-zinc-700 text-white font-mono text-sm focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      <div className="pt-3 flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setPayoutModalOpen(false)}
+                          className="flex-1 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs transition"
+                        >
+                          {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRequestPayout}
+                          disabled={!payoutAccount}
+                          className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs transition shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {language === 'ar' ? 'تأكيد وسحب الرصيد الآن' : 'Confirm & Withdraw Now'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
         </motion.div>
       ) : (
         /* LOGGED OUT VIEW: Account Registration / Login Form with Role Selection */
@@ -486,7 +804,7 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
             <div className="inline-flex p-1.5 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl max-w-md w-full">
               <button
                 type="button"
-                onClick={() => { setAuthMode('signup'); setErrorMsg(null); setSuccessMsg(null); }}
+                onClick={() => { setAuthMode('signup'); setErrorMsg(null); setSuccessMsg(null); setHasSelectedMainRole(false); setHasSelectedRegistrationType(false); scrollToContainer(); }}
                 className={`flex-1 py-3 px-6 rounded-xl font-black text-xs sm:text-sm transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
                   authMode === 'signup'
                     ? 'bg-gradient-to-r from-[#8B0000] to-red-700 text-white shadow-lg border border-red-500/30'
@@ -494,11 +812,11 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                 }`}
               >
                 <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                <span>{language === 'ar' ? 'إنشاء حساب وتحديد الصلاحية' : 'Sign Up & Select Role'}</span>
+                <span>{language === 'ar' ? 'إنشاء حساب جديد' : 'Create New Account'}</span>
               </button>
               <button
                 type="button"
-                onClick={() => { setAuthMode('signin'); setErrorMsg(null); setSuccessMsg(null); }}
+                onClick={() => { setAuthMode('signin'); setErrorMsg(null); setSuccessMsg(null); scrollToContainer(); }}
                 className={`flex-1 py-3 px-6 rounded-xl font-black text-xs sm:text-sm transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
                   authMode === 'signin'
                     ? 'bg-gradient-to-r from-[#D4AF37] to-amber-600 text-zinc-950 shadow-lg'
@@ -511,176 +829,112 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
             </div>
           </div>
 
-          {/* Quick Demo Fill Buttons */}
-          <div className="flex flex-wrap items-center justify-center gap-3 bg-zinc-900/50 p-3.5 rounded-2xl border border-zinc-800/80">
-            <span className="text-xs text-zinc-400 font-bold">
-              {language === 'ar' ? '💡 تجربة سريعة (بيانات جاهزة للاختبار):' : '💡 Quick Demo Credentials:'}
-            </span>
-            <button
-              type="button"
-              onClick={() => handleFillDemo('merchant')}
-              className="px-3 py-1.5 rounded-lg bg-[#8B0000]/20 hover:bg-[#8B0000]/40 text-[#D4AF37] border border-[#D4AF37]/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
-            >
-              <Store className="w-3.5 h-3.5" />
-              <span>{language === 'ar' ? 'بيانات تاجر (Merchant Demo)' : 'Merchant Demo'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleFillDemo('user')}
-              className="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>{language === 'ar' ? 'بيانات عميل (User Demo)' : 'User Demo'}</span>
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* ROLE SELECTION CARDS (Only displayed during Sign Up) */}
-            <AnimatePresence mode="wait">
+          <div
+            ref={authContainerRef}
+            className="p-6 sm:p-8 rounded-3xl border border-zinc-800 bg-zinc-950 shadow-2xl relative min-h-[520px] transition-all duration-300 flex flex-col justify-between overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 w-full h-0.5 animated-glow-line"></div>
+            <form onSubmit={handleSubmit} className="space-y-8 flex-1 flex flex-col justify-between">
+              {/* STEP 1 & 2: UNIFIED ROLE AND TIER SELECTION (STABLE LAYOUT FOR SIGNUP) */}
               {authMode === 'signup' && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-black text-white flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-[#D4AF37] text-zinc-950 flex items-center justify-center text-xs font-black">1</span>
-                      <span>{language === 'ar' ? 'اختر نوع الحساب والصلاحيات المطلوبة في Supabase:' : 'Select Account Role for Supabase Profiles:'}</span>
-                    </h3>
-                    <span className="text-xs text-[#D4AF37] font-mono font-bold bg-[#D4AF37]/10 px-2.5 py-1 rounded-md border border-[#D4AF37]/20">
-                      table: profiles | field: role
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* OPTION 1: USER / CUSTOMER ROLE */}
-                    <div
-                      onClick={() => {
-                        setSelectedRole('user');
-                        if (!USER_SUB_ROLES.some(s => s.id === selectedSubRole)) {
-                          setSelectedSubRole('tourist');
-                        }
-                      }}
-                      className={`p-5 rounded-2xl border-2 transition-all duration-200 cursor-pointer relative flex flex-col justify-between ${
-                        selectedRole === 'user'
-                          ? 'border-emerald-500 bg-emerald-950/20 shadow-[0_0_25px_rgba(16,185,129,0.2)] ring-2 ring-emerald-500/30'
-                          : 'border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 hover:bg-zinc-900/40'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className={`p-3 rounded-xl ${selectedRole === 'user' ? 'bg-emerald-500 text-zinc-950 font-black shadow-md' : 'bg-zinc-800 text-zinc-400'}`}>
-                          <User className="w-6 h-6" />
+                <div className="space-y-6 animate-fade-in">
+                  {/* Step 1: Account Type */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs sm:text-sm font-black text-zinc-200 flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-[#D4AF37] text-zinc-950 flex items-center justify-center text-xs font-black">1</span>
+                        <span>{language === 'ar' ? 'اختر نوع الحساب:' : 'Select Account Type:'}</span>
+                      </label>
+                      <span className="text-[11px] font-bold text-zinc-400 bg-zinc-900 px-2.5 py-1 rounded-md border border-zinc-800">
+                        {selectedRole === 'user' ? (language === 'ar' ? '👤 عميل / مستخدم' : '👤 Customer / User') : (language === 'ar' ? '🏪 تاجر / شريك' : '🏪 Merchant Partner')}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRole('user');
+                          if (!USER_SUB_ROLES.some(s => s.id === selectedSubRole)) {
+                            setSelectedSubRole('citizen');
+                          }
+                        }}
+                        className={`p-4 rounded-2xl border-2 transition-all duration-200 flex items-center gap-3.5 cursor-pointer text-start ${
+                          selectedRole === 'user'
+                            ? 'border-emerald-500 bg-emerald-950/30 text-white shadow-[0_0_20px_rgba(16,185,129,0.15)]'
+                            : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                        }`}
+                      >
+                        <div className={`p-2.5 rounded-xl shrink-0 ${selectedRole === 'user' ? 'bg-emerald-500 text-zinc-950 font-black' : 'bg-zinc-800 text-zinc-400'}`}>
+                          <User className="w-5 h-5" />
                         </div>
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                          selectedRole === 'user' ? 'border-emerald-500 bg-emerald-500 text-zinc-950' : 'border-zinc-700'
-                        }`}>
-                          {selectedRole === 'user' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                        </div>
-                      </div>
-
-                      <div className="space-y-1 mb-4">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-black text-white text-base">
+                        <div className="overflow-hidden flex-1">
+                          <div className="font-black text-xs sm:text-sm truncate">
                             {language === 'ar' ? 'حساب عميل / مستخدم' : 'Customer / User Account'}
-                          </h4>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
-                            role: 'user'
-                          </span>
+                          </div>
+                          <div className="text-[11px] text-zinc-400 truncate">
+                            {language === 'ar' ? 'مسح QR، القوائم والخصومات الحصرية' : 'Scan QRs, access menus & exclusive promos'}
+                          </div>
                         </div>
-                        <p className="text-xs text-zinc-400 leading-relaxed">
-                          {language === 'ar' 
-                            ? 'مخصص للزوار والعملاء لمسح الرموز والاستفادة من القوائم والخصومات الحصرية.' 
-                            : 'For visitors and customers to scan QRs, view menus, and save favorite promotions.'}
-                        </p>
-                      </div>
+                        <div className="ml-auto rtl:mr-auto shrink-0">
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${selectedRole === 'user' ? 'border-emerald-500 bg-emerald-500 text-zinc-950' : 'border-zinc-700'}`}>
+                            {selectedRole === 'user' && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                        </div>
+                      </button>
 
-                      <div className="pt-3 border-t border-zinc-800/80 space-y-1.5 text-[11px] text-zinc-300">
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>{language === 'ar' ? 'صلاحية مسح رموز QR وعرض القوائم والأسعار' : 'Scan QRs & access live menus/prices'}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRole('merchant');
+                          if (!MERCHANT_SUB_ROLES.some(s => s.id === selectedSubRole)) {
+                            setSelectedSubRole('restaurant');
+                          }
+                        }}
+                        className={`p-4 rounded-2xl border-2 transition-all duration-200 flex items-center gap-3.5 cursor-pointer text-start ${
+                          selectedRole === 'merchant'
+                            ? 'border-[#D4AF37] bg-[#8B0000]/25 text-white shadow-[0_0_20px_rgba(212,175,55,0.15)]'
+                            : 'border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                        }`}
+                      >
+                        <div className={`p-2.5 rounded-xl shrink-0 ${selectedRole === 'merchant' ? 'bg-[#D4AF37] text-zinc-950 font-black' : 'bg-zinc-800 text-zinc-400'}`}>
+                          <Store className="w-5 h-5" />
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span>{language === 'ar' ? 'إمكانية تقييم المتاجر وكتابة الملاحظات' : 'Rate merchants & submit verified feedback'}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* OPTION 2: MERCHANT / PARTNER ROLE */}
-                    <div
-                      onClick={() => {
-                        setSelectedRole('merchant');
-                        if (!MERCHANT_SUB_ROLES.some(s => s.id === selectedSubRole)) {
-                          setSelectedSubRole('restaurant');
-                        }
-                      }}
-                      className={`p-5 rounded-2xl border-2 transition-all duration-200 cursor-pointer relative flex flex-col justify-between ${
-                        selectedRole === 'merchant'
-                          ? 'border-[#D4AF37] bg-[#8B0000]/15 shadow-[0_0_25px_rgba(212,175,55,0.25)] ring-2 ring-[#D4AF37]/30'
-                          : 'border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 hover:bg-zinc-900/40'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className={`p-3 rounded-xl ${selectedRole === 'merchant' ? 'bg-[#D4AF37] text-zinc-950 font-black shadow-md' : 'bg-zinc-800 text-zinc-400'}`}>
-                          <Store className="w-6 h-6" />
-                        </div>
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                          selectedRole === 'merchant' ? 'border-[#D4AF37] bg-[#D4AF37] text-zinc-950' : 'border-zinc-700'
-                        }`}>
-                          {selectedRole === 'merchant' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                        </div>
-                      </div>
-
-                      <div className="space-y-1 mb-4">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-black text-white text-base">
+                        <div className="overflow-hidden flex-1">
+                          <div className="font-black text-xs sm:text-sm truncate">
                             {language === 'ar' ? 'حساب تاجر / شريك تجاري' : 'Merchant Partner Account'}
-                          </h4>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#D4AF37]/20 text-[#D4AF37] font-bold border border-[#D4AF37]/30">
-                            role: 'merchant'
-                          </span>
+                          </div>
+                          <div className="text-[11px] text-zinc-400 truncate">
+                            {language === 'ar' ? 'إدارة الأصناف، إنشاء QR ومتابعة الإحصائيات' : 'Manage items, generate QR & view live stats'}
+                          </div>
                         </div>
-                        <p className="text-xs text-zinc-400 leading-relaxed">
-                          {language === 'ar' 
-                            ? 'مخصص لأصحاب المتاجر والمطاعم والشركات لإدارة المنتجات، إنشاء الرموز، ومتابعة الإحصائيات.' 
-                            : 'For business owners to manage items, generate QR codes, and monitor live scan stats.'}
-                        </p>
-                      </div>
-
-                      <div className="pt-3 border-t border-zinc-800/80 space-y-1.5 text-[11px] text-zinc-300">
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                          <span>{language === 'ar' ? 'صلاحية كاملة لإدارة الأصناف وإنشاء رموز QR' : 'Full rights to add items & generate QR codes'}</span>
+                        <div className="ml-auto rtl:mr-auto shrink-0">
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${selectedRole === 'merchant' ? 'border-[#D4AF37] bg-[#D4AF37] text-zinc-950' : 'border-zinc-700'}`}>
+                            {selectedRole === 'merchant' && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                          <span>{language === 'ar' ? 'متابعة إحصائيات المسح وتحليلات الزوار لحظياً' : 'Live analytics & customer scan dashboards'}</span>
-                        </div>
-                      </div>
+                      </button>
                     </div>
                   </div>
 
-                  {/* STEP 2: SUB-ROLE / TIER SELECTION */}
-                  <div className="pt-4 border-t border-zinc-800/80 space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <h3 className="text-sm font-black text-white flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center text-xs font-black">2</span>
+                  {/* Step 2: Tier Selection Grid */}
+                  <div className="space-y-3 pt-5 border-t border-zinc-800/80">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs sm:text-sm font-black text-zinc-200 flex items-center gap-2">
+                        <span className={`w-6 h-6 rounded-full text-zinc-950 flex items-center justify-center text-xs font-black ${selectedRole === 'merchant' ? 'bg-[#D4AF37]' : 'bg-emerald-500'}`}>2</span>
                         <span>
                           {language === 'ar'
-                            ? `اختر تصنيف ${selectedRole === 'merchant' ? 'نشاط التاجر / الشريك التجاري' : 'حساب العميل / المستخدم'} المخصص:`
-                            : `Select Specific Tier for ${selectedRole === 'merchant' ? 'Merchant Partner' : 'Customer / User'}:`}
+                            ? `اختر تصنيف ${selectedRole === 'merchant' ? 'النشاط التجاري' : 'عضوية المستخدم'}:`
+                            : `Select ${selectedRole === 'merchant' ? 'Business Sector' : 'Membership Tier'}:`}
                         </span>
-                      </h3>
-                      <span className="text-[11px] font-mono text-zinc-400 bg-zinc-900 px-2.5 py-1 rounded-md border border-zinc-800">
+                      </label>
+                      <span className="text-[11px] font-bold text-zinc-400 bg-zinc-900 px-2.5 py-1 rounded-md border border-zinc-800">
                         {selectedRole === 'merchant'
-                          ? (language === 'ar' ? '🏪 أنشطة وأعمال تجارية' : '🏪 Business Sectors')
-                          : (language === 'ar' ? '👤 اهتمامات وصلاحيات الأفراد' : '👤 Individual Tiers')}
+                          ? (language === 'ar' ? '🏪 5 أنشطة متاحة' : '🏪 5 Sectors')
+                          : (language === 'ar' ? '👤 4 باقات متاحة' : '👤 4 Tiers')}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                       {(selectedRole === 'merchant' ? MERCHANT_SUB_ROLES : USER_SUB_ROLES).map((sub) => {
                         const Icon = sub.icon;
                         const isSelected = selectedSubRole === sub.id;
@@ -688,36 +942,51 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                           <div
                             key={sub.id}
                             onClick={() => setSelectedSubRole(sub.id)}
-                            className={`p-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between ${
+                            className={`p-3.5 rounded-2xl border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between ${
                               isSelected
                                 ? selectedRole === 'merchant'
-                                  ? 'border-[#D4AF37] bg-[#8B0000]/25 shadow-[0_0_20px_rgba(212,175,55,0.2)]'
-                                  : 'border-emerald-500 bg-emerald-950/30 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
-                                : 'border-zinc-800/80 bg-zinc-950/50 hover:border-zinc-700 hover:bg-zinc-900/40'
+                                  ? 'border-[#D4AF37] bg-[#8B0000]/25 shadow-[0_0_15px_rgba(212,175,55,0.2)]'
+                                  : 'border-emerald-500 bg-emerald-950/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+                                : 'border-zinc-800/80 bg-zinc-900/30 hover:border-zinc-700 hover:bg-zinc-900/60'
                             }`}
                           >
-                            <div className="space-y-2 mb-2">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className={`p-2.5 rounded-xl ${
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-1.5">
+                                <div className={`p-2 rounded-xl shrink-0 ${
                                   isSelected
-                                    ? selectedRole === 'merchant' ? 'bg-[#D4AF37] text-zinc-950 font-black shadow-md' : 'bg-emerald-500 text-zinc-950 font-black shadow-md'
+                                    ? selectedRole === 'merchant' ? 'bg-[#D4AF37] text-zinc-950 font-black' : 'bg-emerald-500 text-zinc-950 font-black'
                                     : 'bg-zinc-800 text-zinc-400'
                                 }`}>
                                   <Icon className="w-4 h-4" />
                                 </div>
-                                <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
-                                  isSelected
-                                    ? selectedRole === 'merchant' ? 'border-[#D4AF37] bg-[#D4AF37] text-zinc-950' : 'border-emerald-500 bg-emerald-500 text-zinc-950'
-                                    : 'border-zinc-700'
-                                }`}>
-                                  {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                <div className="flex items-center gap-1.5">
+                                  {(sub as any).priceAr && (
+                                    <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-black ${
+                                      (sub as any).isPremium ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-zinc-800 text-zinc-400'
+                                    }`}>
+                                      {language === 'ar' ? (sub as any).priceAr : (sub as any).priceEn}
+                                    </span>
+                                  )}
+                                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                                    isSelected
+                                      ? selectedRole === 'merchant' ? 'border-[#D4AF37] bg-[#D4AF37] text-zinc-950' : 'border-emerald-500 bg-emerald-500 text-zinc-950'
+                                      : 'border-zinc-700'
+                                  }`}>
+                                    {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                  </div>
                                 </div>
                               </div>
-                              <h4 className="font-black text-xs sm:text-sm text-white">
+                              <h4 className="font-black text-xs text-white leading-snug">
                                 {language === 'ar' ? sub.titleAr : sub.titleEn}
                               </h4>
+                              {(sub as any).commission > 0 && (
+                                <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 w-fit">
+                                  <BadgePercent className="w-3 h-3" />
+                                  <span>{language === 'ar' ? `عمولة: ${(sub as any).commission}%` : `Affiliate: ${(sub as any).commission}%`}</span>
+                                </div>
+                              )}
                             </div>
-                            <p className="text-[11px] text-zinc-400 leading-relaxed pt-2 border-t border-zinc-800/60">
+                            <p className="text-[11px] text-zinc-400 leading-relaxed mt-2 pt-2 border-t border-zinc-800/60 line-clamp-2">
                               {language === 'ar' ? sub.descAr : sub.descEn}
                             </p>
                           </div>
@@ -725,24 +994,43 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                       })}
                     </div>
                   </div>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
+
+            {/* STEP 2 handled in unified layout above */}
 
             {/* ACCOUNT CREDENTIALS FORM */}
-            <div className="p-6 sm:p-8 rounded-3xl border border-zinc-800 bg-zinc-950 space-y-6 relative overflow-hidden shadow-xl">
-              <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
-              
-              <div className="flex items-center gap-2 pb-4 border-b border-zinc-800/80">
-                <span className="w-6 h-6 rounded-full bg-[#D4AF37] text-zinc-950 flex items-center justify-center text-xs font-black">
-                  {authMode === 'signup' ? '3' : '1'}
-                </span>
-                <h3 className="text-sm font-black text-white">
-                  {authMode === 'signup' 
-                    ? (language === 'ar' ? 'بيانات الحساب وتسجيل الملف في Supabase' : 'Account Information & Profile Sync')
-                    : (language === 'ar' ? 'أدخل بيانات الدخول للتحقق من الصلاحيات' : 'Enter Credentials to Verify Permissions')}
-                </h3>
-              </div>
+            <AnimatePresence mode="wait">
+              {true && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-center justify-between pb-4 border-b border-zinc-800/80">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-[#D4AF37] text-zinc-950 flex items-center justify-center text-xs font-black">
+                        {authMode === 'signup' ? '3' : '1'}
+                      </span>
+                      <h3 className="text-sm sm:text-base font-black text-white">
+                        {authMode === 'signup'
+                          ? (language === 'ar' ? 'أدخل بيانات الحساب الجديد:' : 'Enter Account Credentials:')
+                          : (language === 'ar' ? 'أدخل بيانات الدخول للمتابعة إلى حسابك' : 'Enter Credentials to Access Your Account')}
+                      </h3>
+                    </div>
+                    {authMode === 'signup' && (
+                      <div className="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20 flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>
+                          {language === 'ar'
+                            ? `الفئة: ${(selectedRole === 'merchant' ? MERCHANT_SUB_ROLES : USER_SUB_ROLES).find(s => s.id === selectedSubRole)?.titleAr}`
+                            : `Tier: ${(selectedRole === 'merchant' ? MERCHANT_SUB_ROLES : USER_SUB_ROLES).find(s => s.id === selectedSubRole)?.titleEn}`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
               {/* Success Banner */}
               {successMsg && (
@@ -827,39 +1115,83 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                   {loading ? (
                     <>
                       <RefreshCw className="w-5 h-5 animate-spin" />
-                      <span>{language === 'ar' ? 'جاري الاتصال بقاعدة بيانات Supabase...' : 'Connecting to Supabase Database...'}</span>
+                      <span>{language === 'ar' ? 'جاري معالجة البيانات...' : 'Processing...'}</span>
                     </>
                   ) : authMode === 'signup' ? (
                     <>
                       <Shield className="w-5 h-5" />
-                      <span>
-                        {language === 'ar'
-                          ? `إنشاء الحساب وربط صلاحية (${selectedRole === 'merchant' ? 'تاجر / شريك' : 'عميل / مستخدم'}) في Supabase`
-                          : `Create Account & Sync Role (${selectedRole.toUpperCase()}) in Supabase`}
-                      </span>
+                      <span>{language === 'ar' ? 'إنشاء الحساب الآن' : 'Create Account Now'}</span>
                       <ArrowRight className="w-5 h-5 rtl:rotate-180" />
                     </>
                   ) : (
                     <>
                       <KeyRound className="w-5 h-5" />
-                      <span>{language === 'ar' ? 'تسجيل الدخول والتحقق من جدول الصلاحيات' : 'Sign In & Verify Role Permissions'}</span>
+                      <span>{language === 'ar' ? 'تسجيل الدخول الآن' : 'Sign In Now'}</span>
                       <ArrowRight className="w-5 h-5 rtl:rotate-180" />
                     </>
                   )}
                 </button>
 
+                {/* Divider */}
+                <div className="w-full max-w-lg my-2 flex items-center gap-3">
+                  <div className="h-px bg-zinc-800 flex-1" />
+                  <span className="text-[11px] font-extrabold text-zinc-500 uppercase tracking-wider">
+                    {language === 'ar' ? 'أو التسجيل السريع' : 'Or Quick Sign In'}
+                  </span>
+                  <div className="h-px bg-zinc-800 flex-1" />
+                </div>
+
+                {/* Google Sign-In Button */}
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={isGoogleLoading || loading}
+                  className="w-full max-w-lg py-3.5 px-6 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-sm shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center gap-3 border border-zinc-700/80 hover:border-zinc-500 disabled:opacity-50"
+                >
+                  {isGoogleLoading ? (
+                    <RefreshCw className="w-5 h-5 animate-spin text-[#D4AF37]" />
+                  ) : (
+                    <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                      <path
+                        fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                      />
+                    </svg>
+                  )}
+                  <span>
+                    {language === 'ar'
+                      ? 'الدخول المباشر بحساب جوجل (Google)'
+                      : 'Continue with Google Account'}
+                  </span>
+                </button>
+
                 <p className="text-[11px] text-zinc-400 font-mono text-center max-w-md">
                   {authMode === 'signup'
                     ? (language === 'ar'
-                        ? `* سيتم إضافة حقل role='${selectedRole}' للمستخدم في جدول profiles في قاعدة Supabase لضمان الصلاحيات المخصصة.`
-                        : `* A row with role='${selectedRole}' will be upserted in the Supabase 'profiles' table to ensure customized permissions.`)
+                        ? '* بيانتك مشفرة ومحمية بالكامل لضمان سرية حسابك وتجربتك المخصصة في المنصة.'
+                        : '* Your account credentials and selected tier are securely encrypted.')
                     : (language === 'ar'
-                        ? '* يتم الاستعلام عن حقل role من جدول profiles عند الدخول لتوجيه التاجر أو العميل للوحة المناسبة.'
-                        : '* Queries role field from profiles table upon login to direct Merchant or Customer correctly.')}
+                        ? '* يتم التحقق من بياناتك وتوجيهك مباشرة للوحة التحكم الخاصة بفئتك.'
+                        : '* Verifies credentials to direct you to your dedicated dashboard.')}
                 </p>
               </div>
-            </div>
-          </form>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </form>
+          </div>
         </motion.div>
       )}
     </div>

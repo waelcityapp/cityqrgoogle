@@ -597,7 +597,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ scannedQR, onCloseScannedQ
         <div className="space-y-4">
           <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-4 relative overflow-hidden shadow-xl">
             {/* Top colored line indicator */}
-            <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
+            <div className="absolute top-0 left-0 w-full h-0.5 animated-glow-line"></div>
             
             <h3 className="text-xs font-black tracking-tighter text-[#D4AF37] flex items-center gap-2 mt-2">
               <Play className="w-4 h-4 text-[#8B0000]" />

@@ -164,18 +164,18 @@ html.light .bg-[#D4AF37] {
 @keyframes movingLightGlow {
   0% {
     background-position: 0% 50%;
-    box-shadow: 0 0 10px rgba(212, 175, 55, 0.7), 0 0 20px rgba(139, 0, 0, 0.5);
-    filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.8));
+    box-shadow: 0 0 6px rgba(212, 175, 55, 0.3), 0 0 12px rgba(139, 0, 0, 0.2);
+    filter: drop-shadow(0 0 3px rgba(212, 175, 55, 0.4));
   }
   50% {
     background-position: 100% 50%;
-    box-shadow: 0 0 18px rgba(255, 225, 125, 1), 0 0 32px rgba(220, 38, 38, 0.9), 0 0 8px #ffffff;
-    filter: drop-shadow(0 0 12px rgba(255, 215, 0, 1));
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.6), 0 0 20px rgba(220, 38, 38, 0.4);
+    filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.6));
   }
   100% {
     background-position: 0% 50%;
-    box-shadow: 0 0 10px rgba(212, 175, 55, 0.7), 0 0 20px rgba(139, 0, 0, 0.5);
-    filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.8));
+    box-shadow: 0 0 6px rgba(212, 175, 55, 0.3), 0 0 12px rgba(139, 0, 0, 0.2);
+    filter: drop-shadow(0 0 3px rgba(212, 175, 55, 0.4));
   }
 }
 
@@ -183,26 +183,26 @@ html.light .bg-[#D4AF37] {
   background: linear-gradient(
     90deg,
     #8B0000 0%,
-    #dc2626 20%,
-    #D4AF37 45%,
-    #ffffff 50%,
-    #D4AF37 55%,
-    #dc2626 80%,
+    #b91c1c 25%,
+    #D4AF37 48%,
+    #fef08a 50%,
+    #D4AF37 52%,
+    #b91c1c 75%,
     #8B0000 100%
   );
-  background-size: 250% 100%;
-  animation: movingLightGlow 3s ease-in-out infinite;
+  background-size: 200% 100%;
+  animation: movingLightGlow 7s ease-in-out infinite;
   z-index: 20;
 }
 
-/* Dark Mode White Shadow for Cards and Containers (gives 3D protrusion feeling and clear separation) */
+/* Dark Mode Subtle Soft Shadow for Cards and Containers */
 html.dark .rounded-xl:not(button):not(input):not(select):not(a):not(span):not(img):not(video):not(.shadow-inner),
 html.dark .rounded-2xl:not(button):not(input):not(select):not(a):not(span):not(.shadow-inner),
 html.dark .rounded-3xl:not(button):not(input):not(select):not(a):not(span):not(.shadow-inner),
 html:not(.light) .rounded-xl:not(button):not(input):not(select):not(a):not(span):not(img):not(video):not(.shadow-inner),
 html:not(.light) .rounded-2xl:not(button):not(input):not(select):not(a):not(span):not(.shadow-inner),
 html:not(.light) .rounded-3xl:not(button):not(input):not(select):not(a):not(span):not(.shadow-inner) {
-  box-shadow: 0 4px 30px -2px rgba(255, 255, 255, 0.16), 0 0 20px rgba(255, 255, 255, 0.08), 0 0 1px 1px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 20px -2px rgba(255, 255, 255, 0.08), 0 0 12px rgba(255, 255, 255, 0.04), 0 0 1px 1px rgba(255, 255, 255, 0.1);
   transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
 }
 
@@ -212,5 +212,5 @@ html.dark .rounded-3xl:not(button):not(input):not(select):not(a):not(span):not(.
 html:not(.light) .rounded-xl:not(button):not(input):not(select):not(a):not(span):not(img):not(video):not(.shadow-inner):hover,
 html:not(.light) .rounded-2xl:not(button):not(input):not(select):not(a):not(span):not(.shadow-inner):hover,
 html:not(.light) .rounded-3xl:not(button):not(input):not(select):not(a):not(span):not(.shadow-inner):hover {
-  box-shadow: 0 8px 40px -2px rgba(255, 255, 255, 0.28), 0 0 28px rgba(255, 255, 255, 0.14), 0 0 2px 1px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 6px 28px -2px rgba(255, 255, 255, 0.14), 0 0 18px rgba(255, 255, 255, 0.07), 0 0 1px 1px rgba(255, 255, 255, 0.2);
 }

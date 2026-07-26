@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useApp } from '../services/AppContext';
 import { translations } from '../services/translations';
 import { QRCodeItem, LandmarkCategory } from '../types';
+import { getCloudinaryConfig, saveCloudinaryConfig, isCloudinaryConfigured } from '../services/cloudinary';
+import { MediaCompressorUpload } from '../components/MediaCompressorUpload';
 import { 
   QrCode, 
   MapPin, 
@@ -20,7 +22,12 @@ import {
   Info,
   Heart,
   Star,
-  ThumbsUp
+  ThumbsUp,
+  Cloud,
+  Settings,
+  CheckCircle,
+  X,
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { OfferCardDescription } from '../components/OfferCardDescription';
@@ -37,6 +44,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onSelectScanne
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<LandmarkCategory | 'all'>('all');
+
+  // Cloudinary Settings & Compression Tool Modal State
+  const [isCloudinaryModalOpen, setIsCloudinaryModalOpen] = useState(false);
+  const [showCompressorTool, setShowCompressorTool] = useState(false);
+  const currentCConfig = getCloudinaryConfig();
+  const [cCloudName, setCCloudName] = useState(currentCConfig.cloudName || '');
+  const [cPreset, setCPreset] = useState(currentCConfig.uploadPreset || '');
+  const [cApiKey, setCApiKey] = useState(currentCConfig.apiKey || '');
+  const [cSavedNotice, setCSavedNotice] = useState('');
+
+  const handleSaveCloudinaryConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveCloudinaryConfig({
+      cloudName: cCloudName.trim(),
+      uploadPreset: cPreset.trim(),
+      apiKey: cApiKey.trim()
+    });
+    setCSavedNotice(language === 'ar' ? 'تم حفظ إعدادات Cloudinary بنجاح!' : 'Cloudinary configuration saved successfully!');
+    setTimeout(() => {
+      setCSavedNotice('');
+      setIsCloudinaryModalOpen(false);
+    }, 1200);
+  };
 
   // Stats
   const totalQrs = qrcodes.length;
@@ -94,7 +124,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onSelectScanne
       {/* Brand Hero Welcome with Bold Typography top border line & styling */}
       <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-6 md:p-10 relative">
         {/* Top colored line indicator */}
-        <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
+        <div className="absolute top-0 left-0 w-full h-0.5 animated-glow-line"></div>
         
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#8B0000]/5 rounded-full blur-3xl -z-10" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#D4AF37]/5 rounded-full blur-3xl -z-10" />
@@ -143,15 +173,67 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onSelectScanne
         </div>
 
         {/* Supabase Status */}
-        <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 md:col-span-2 relative overflow-hidden">
+        <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#D4AF37]/50 to-[#D4AF37]/10"></div>
           <p className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">{t.supabaseStatus}</p>
-          <h3 className="text-2xl font-black text-white mt-2">{supabaseActive ? t.supabaseConnected : t.supabaseFallback}</h3>
+          <h3 className="text-xl font-black text-white mt-2">{supabaseActive ? t.supabaseConnected : t.supabaseFallback}</h3>
           <p className="text-[10px] text-amber-500 font-mono mt-1">
             ● {supabaseActive ? 'SYNCED WITH CLOUD CLUSTER' : 'ACTIVE EMBEDDED INDEXEDDB Fallback'}
           </p>
         </div>
+
+        {/* Cloudinary Status & Config */}
+        <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 relative overflow-hidden flex flex-col justify-between space-y-3">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500/50 to-blue-500/10"></div>
+          <div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-zinc-500 font-bold uppercase tracking-tighter flex items-center gap-1.5">
+                <Cloud className="w-3.5 h-3.5 text-cyan-400" />
+                <span>CLOUDINARY MEDIA CDN</span>
+              </p>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setShowCompressorTool(!showCompressorTool)}
+                  className="text-xs text-amber-300 hover:text-white flex items-center gap-1 font-bold bg-amber-500/20 hover:bg-amber-500/30 px-2.5 py-1 rounded-lg border border-amber-500/40 transition cursor-pointer"
+                  title={language === 'ar' ? 'أداة ضغط الصور والفيديوهات والرفع المباشر' : 'Media Compressor & Live Upload Tool'}
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                  <span>{language === 'ar' ? 'أداة الضغط' : 'Compressor'}</span>
+                </button>
+                <button
+                  onClick={() => setIsCloudinaryModalOpen(true)}
+                  className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-bold bg-cyan-950/50 hover:bg-cyan-900/50 px-2 py-1 rounded-lg border border-cyan-800/50 transition cursor-pointer"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>{language === 'ar' ? 'إعداد' : 'Config'}</span>
+                </button>
+              </div>
+            </div>
+            <h3 className="text-xl font-black text-white mt-2">
+              {isCloudinaryConfigured() ? (language === 'ar' ? 'متصل بروابط وسائط Cloudinary' : 'Cloudinary Media CDN Active') : (language === 'ar' ? 'جاهز للربط مع Cloudinary' : 'Ready to Connect Cloudinary')}
+            </h3>
+            <p className="text-[10px] text-cyan-400 font-mono mt-1">
+              ● {isCloudinaryConfigured() ? `CLOUD: ${getCloudinaryConfig().cloudName}` : 'DIRECT IMAGE & VIDEO STORAGE'}
+            </p>
+          </div>
+        </div>
       </div>
+
+      {/* Standalone Media Compressor Tool (Expandable in Dashboard) */}
+      <AnimatePresence>
+        {showCompressorTool && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="pt-2">
+              <MediaCompressorUpload language={language} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -398,6 +480,107 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onSelectScanne
           )}
         </AnimatePresence>
       </div>
+
+      {/* Cloudinary Settings Modal */}
+      <AnimatePresence>
+        {isCloudinaryModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 max-w-md w-full shadow-2xl relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <Cloud className="w-5 h-5 text-cyan-400" />
+                  <h3 className="text-lg font-black text-white">
+                    {language === 'ar' ? 'إعداد حساب Cloudinary' : 'Cloudinary Media CDN Setup'}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsCloudinaryModalOpen(false)}
+                  className="p-1 rounded-lg hover:bg-zinc-900 text-zinc-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveCloudinaryConfig} className="space-y-4 mt-4">
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  {language === 'ar'
+                    ? 'قم بإدخال اسم السحابة (Cloud Name) و الـ Unsigned Upload Preset لربط رفع الصور والفيديوهات مباشرة لسيرفرات Cloudinary.'
+                    : 'Provide your Cloud Name and Unsigned Upload Preset to enable direct image/video uploads to Cloudinary CDN.'}
+                </p>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-zinc-300 block">
+                    Cloud Name (اسم السحابة)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={cCloudName}
+                    onChange={(e) => setCCloudName(e.target.value)}
+                    placeholder="e.g. cityqr-cloud"
+                    className="w-full rounded-xl bg-zinc-900 border border-zinc-800 p-3 text-sm text-white font-mono outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-zinc-300 block">
+                    Upload Preset (Unsigned)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={cPreset}
+                    onChange={(e) => setCPreset(e.target.value)}
+                    placeholder="e.g. cityqr_preset"
+                    className="w-full rounded-xl bg-zinc-900 border border-zinc-800 p-3 text-sm text-white font-mono outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-zinc-300 block">
+                    API Key (اختياري / Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={cApiKey}
+                    onChange={(e) => setCApiKey(e.target.value)}
+                    placeholder="e.g. 123456789012345"
+                    className="w-full rounded-xl bg-zinc-900 border border-zinc-800 p-3 text-sm text-white font-mono outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                {cSavedNotice && (
+                  <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-bold flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+                    <span>{cSavedNotice}</span>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCloudinaryModalOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-xs font-bold text-zinc-300 transition"
+                  >
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-xs font-bold text-black transition shadow-lg shadow-cyan-500/20"
+                  >
+                    {language === 'ar' ? 'حفظ الإعدادات' : 'Save Config'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

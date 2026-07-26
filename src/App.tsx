@@ -90,6 +90,42 @@ function CityQRAppContent() {
   // Notifications Bell & Quick Menu states
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isQuickMenuOpen, setIsQuickMenuOpen] = useState(false);
+  
+  const [broadcastNotifs, setBroadcastNotifs] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('cityqr_app_notifications') || localStorage.getItem('cityqr_broadcast_notifications');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [
+      {
+        id: 101,
+        titleAr: '🔥 خصم 50% حصري لأعضاء VIP والدرجة الأولى في مطعم هافور!',
+        titleEn: '🔥 Exclusive 50% VIP & First Class Discount at Havur Restaurant!',
+        descAr: 'تم تفعيل كود خصم خاص لأعضاء باقات النخبة المشتركين. استمتع بوجبتك الآن!',
+        descEn: 'Special promo code activated for subscribed elite tier members. Enjoy your meal now!',
+        timeAr: 'منذ ساعتين',
+        timeEn: '2 hours ago',
+        targetTiers: ['vip_deal_hunter', 'first_class'],
+        priority: 'golden'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    const checkStorage = () => {
+      try {
+        const saved = localStorage.getItem('cityqr_app_notifications') || localStorage.getItem('cityqr_broadcast_notifications');
+        if (saved) setBroadcastNotifs(JSON.parse(saved));
+      } catch (e) {}
+    };
+    window.addEventListener('storage', checkStorage);
+    return () => window.removeEventListener('storage', checkStorage);
+  }, []);
+
+  const myPersonalNotifsCount = currentUser 
+    ? broadcastNotifs.filter(n => n.targetTiers?.includes('all') || n.targetTiers?.includes(currentUser.subRole || currentUser.role || 'citizen')).length 
+    : 1;
+
   const mockNotifications = [
     {
       id: 0,
@@ -551,7 +587,7 @@ function CityQRAppContent() {
                 <button
                   onClick={() => setIsQuickMenuOpen(!isQuickMenuOpen)}
                   className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-amber-500/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] transition duration-200 cursor-pointer shadow-sm shrink-0 flex items-center justify-center group"
-                  title={language === 'ar' ? 'القائمة السريعة: مصر، العملة، الطوارئ والواجهة' : 'Quick Menu: Country, Currency, Emergency & Interface'}
+                  title={language === 'ar' ? 'القائمة السريعة: الدولة والعملة والواجهة' : 'Quick Menu: Country, Currency & Interface'}
                 >
                   <Menu className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
                 </button>
@@ -586,7 +622,7 @@ function CityQRAppContent() {
             <button
               onClick={() => setIsCountryModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-[#8B0000]/10 dark:from-[#D4AF37]/15 dark:to-[#8B0000]/15 text-xs text-black dark:text-white hover:border-[#D4AF37] hover:scale-105 transition duration-150 cursor-pointer font-bold shadow-sm shrink-0 whitespace-nowrap"
-              title={language === 'ar' ? 'تغيير الدولة والعملة وأرقام الطوارئ' : 'Change Country, Currency & Emergency Info'}
+              title={language === 'ar' ? 'تغيير الدولة والعملة' : 'Change Country & Currency'}
             >
               <span className="text-base leading-none">{userCountry?.flag || '🇪🇬'}</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#D4AF37] text-black font-extrabold">{userCountry?.currencyCode || 'EGP'}</span>
@@ -632,7 +668,7 @@ function CityQRAppContent() {
             { id: 'landing', label: t.visitorPortal, icon: Compass },
             { id: 'scanner', label: t.scanner, icon: QrCode },
             { id: 'emergency', label: t.emergency, icon: ShieldAlert },
-            { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'My Account') : (language === 'ar' ? 'إنشاء حساب' : 'Create Account'), icon: User, hasNotification: !currentUser, isAvatar: !!currentUser },
+            { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'My Account') : (language === 'ar' ? 'إنشاء حساب' : 'Create Account'), icon: User, hasNotification: currentUser ? myPersonalNotifsCount > 0 : !currentUser, badgeCount: currentUser ? myPersonalNotifsCount : 1, isAvatar: !!currentUser },
           ].map((item) => {
             const Icon = item.icon;
             const isSelected = activeTab === item.id;
@@ -659,7 +695,7 @@ function CityQRAppContent() {
                   )}
                   {item.hasNotification && (
                     <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 animate-pulse shadow">
-                      1
+                      {item.badgeCount || 1}
                     </span>
                   )}
                 </div>
@@ -739,7 +775,7 @@ function CityQRAppContent() {
           { id: 'landing', label: t.visitorPortal, icon: Compass },
           { id: 'scanner', label: t.scanner, icon: QrCode },
           { id: 'emergency', label: t.emergency, icon: ShieldAlert },
-          { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'My Account') : (language === 'ar' ? 'إنشاء حساب' : 'Create Account'), icon: User, hasNotification: !currentUser, isAvatar: !!currentUser },
+          { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'My Account') : (language === 'ar' ? 'إنشاء حساب' : 'Create Account'), icon: User, hasNotification: currentUser ? myPersonalNotifsCount > 0 : !currentUser, badgeCount: currentUser ? myPersonalNotifsCount : 1, isAvatar: !!currentUser },
         ].map((item) => {
           const Icon = item.icon;
           const isSelected = activeTab === item.id;
@@ -773,7 +809,7 @@ function CityQRAppContent() {
                 )}
                 {item.hasNotification && (
                   <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 animate-pulse shadow">
-                    1
+                    {item.badgeCount || 1}
                   </span>
                 )}
               </div>
@@ -805,7 +841,7 @@ function CityQRAppContent() {
               exit={{ scale: 0.95, y: 15, opacity: 0 }}
               className="relative w-full max-w-md overflow-hidden rounded-2xl border border-zinc-200 dark:border-[#D4AF37]/30 bg-white dark:bg-zinc-950 p-6 shadow-2xl text-zinc-950 dark:text-zinc-100 z-10"
             >
-              <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
+              <div className="absolute top-0 left-0 w-full h-0.5 animated-glow-line"></div>
               
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
@@ -956,7 +992,7 @@ function CityQRAppContent() {
               exit={{ scale: 0.95, y: 15, opacity: 0 }}
               className="relative w-full max-w-md overflow-hidden rounded-2xl border border-zinc-200 dark:border-[#D4AF37]/30 bg-white dark:bg-zinc-950 p-6 shadow-2xl text-zinc-950 dark:text-zinc-100 z-10"
             >
-              <div className="absolute top-0 left-0 w-full h-1.5 animated-glow-line"></div>
+              <div className="absolute top-0 left-0 w-full h-0.5 animated-glow-line"></div>
               
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
@@ -1126,7 +1162,7 @@ function CityQRAppContent() {
               className="relative w-full max-w-3xl bg-white dark:bg-zinc-900 rounded-3xl border border-[#D4AF37]/30 shadow-2xl p-6 md:p-8 overflow-hidden max-h-[90vh] flex flex-col"
             >
               {/* Top Banner Accent */}
-              <div className="absolute top-0 left-0 right-0 h-1.5 animated-glow-line" />
+              <div className="absolute top-0 left-0 right-0 h-0.5 animated-glow-line" />
 
               {/* Close Button */}
               <button
@@ -1142,10 +1178,10 @@ function CityQRAppContent() {
                 </div>
                 <div>
                   <h3 className="text-xl font-black text-zinc-900 dark:text-white">
-                    {language === 'ar' ? 'اختيار الدولة والعملة وأرقام الطوارئ' : 'Select Country, Currency & Emergency Info'}
+                    {language === 'ar' ? 'اختيار الدولة والعملة' : 'Select Country & Currency'}
                   </h3>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {language === 'ar' ? 'تطبيق CityQR يتكيف تلقائياً مع عملة بلدك وأرقام الطوارئ المحلية أينما كنت حول العالم' : 'CityQR automatically adapts to your local currency and emergency numbers anywhere around the globe'}
+                    {language === 'ar' ? 'تطبيق CityQR يتكيف تلقائياً مع عملة بلدك أينما كنت حول العالم' : 'CityQR automatically adapts to your local currency anywhere around the globe'}
                   </p>
                 </div>
               </div>
@@ -1162,19 +1198,12 @@ function CityQRAppContent() {
                       <h4 className="text-lg font-black text-zinc-900 dark:text-white">
                         {language === 'ar' ? userCountry.nameAr : userCountry.nameEn} ({userCountry.code})
                       </h4>
-                      <p className="text-xs text-zinc-600 dark:text-zinc-300 max-w-md mt-1">
-                        {language === 'ar' ? userCountry.touristTipAr : userCountry.touristTipEn}
-                      </p>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 text-center">
                       <span className="block text-[10px] text-zinc-400">{language === 'ar' ? 'العملة الرسمية' : 'Official Currency'}</span>
                       <span className="font-bold text-xs text-[#D4AF37]">{userCountry.currencyCode} ({userCountry.currencySymbol})</span>
-                    </div>
-                    <div className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 text-center">
-                      <span className="block text-[10px] text-zinc-400">{language === 'ar' ? 'شرطة / إسعاف' : 'Police / Ambulance'}</span>
-                      <span className="font-bold text-xs text-red-500 font-mono">{userCountry.policeNumber} / {userCountry.ambulanceNumber}</span>
                     </div>
                   </div>
                 </div>
@@ -1207,7 +1236,6 @@ function CityQRAppContent() {
                         </div>
                         <div className="flex items-center justify-between mt-1 text-[11px] opacity-80">
                           <span>{country.currencyCode} ({country.currencySymbol})</span>
-                          <span className="font-mono text-red-400 dark:text-red-300">🆘 {country.policeNumber}</span>
                         </div>
                       </div>
                     </button>
@@ -1400,7 +1428,7 @@ function CityQRAppContent() {
                     <Activity className="w-4 h-4" />
                   </div>
                   <span className="font-black text-xs text-zinc-900 dark:text-white">
-                    {language === 'ar' ? 'القائمة السريعة: الدولة والطوارئ' : 'Quick Access: Country & Emergency'}
+                    {language === 'ar' ? 'القائمة السريعة: الدولة والعملة' : 'Quick Access: Country & Currency'}
                   </span>
                 </div>
                 <button
@@ -1415,7 +1443,7 @@ function CityQRAppContent() {
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
                   <MapPin className="w-3 h-3 text-[#D4AF37]" />
-                  <span>{language === 'ar' ? 'الدولة المختارة (جمهورية مصر)' : 'Country Selection'}</span>
+                  <span>{language === 'ar' ? 'الدولة المختارة' : 'Country Selection'}</span>
                 </label>
                 <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1501,40 +1529,6 @@ function CityQRAppContent() {
                     <span className="block text-xs font-black text-red-400">ر.س SAR</span>
                     <span className="text-[9px] text-zinc-400">{language === 'ar' ? 'الريال' : 'Riyal'}</span>
                   </button>
-                </div>
-              </div>
-
-              {/* 3. Police & Ambulance Emergency */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
-                  <Shield className="w-3 h-3 text-red-500" />
-                  <span>{language === 'ar' ? 'أرقام الشرطة والإسعاف (طوارئ سريعة)' : 'Police & Ambulance (Emergency)'}</span>
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <a
-                    href={`tel:${userCountry?.policeNumber || '122'}`}
-                    className="p-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 flex items-center justify-between text-red-400 font-bold transition group"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <Shield className="w-4 h-4 text-red-500 animate-pulse" />
-                      <span className="text-xs">{language === 'ar' ? 'الشرطة' : 'Police'}</span>
-                    </div>
-                    <span className="font-mono text-sm font-black bg-red-500/20 px-2 py-0.5 rounded-md text-white group-hover:scale-105 transition">
-                      {userCountry?.policeNumber || '122'}
-                    </span>
-                  </a>
-                  <a
-                    href={`tel:${userCountry?.ambulanceNumber || '123'}`}
-                    className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 flex items-center justify-between text-rose-400 font-bold transition group"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <PhoneCall className="w-4 h-4 text-rose-500 animate-pulse" />
-                      <span className="text-xs">{language === 'ar' ? 'الإسعاف' : 'Ambulance'}</span>
-                    </div>
-                    <span className="font-mono text-sm font-black bg-rose-500/20 px-2 py-0.5 rounded-md text-white group-hover:scale-105 transition">
-                      {userCountry?.ambulanceNumber || '123'}
-                    </span>
-                  </a>
                 </div>
               </div>
 
