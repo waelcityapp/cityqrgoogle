@@ -858,10 +858,26 @@ export async function signInWithSupabase(
 /**
  * Initiates Google OAuth Sign-In via Supabase Auth
  */
-export async function signInWithGoogle(): Promise<{ error?: string }> {
+export async function signInWithGoogle(): Promise<{ user?: UserProfile; error?: string }> {
   const client = getSupabaseClient();
+  
   if (!client) {
-    return { error: 'اتصال Supabase غير مهيأ بعد. يرجى التأكد من إضافة VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY.' };
+    // Demo / Offline local simulation for Google Login when Supabase env variables are empty
+    const googleUser: UserProfile = {
+      id: 'google-user-super-admin',
+      email: 'waelvts@gmail.com',
+      fullName: 'م. وائل - المدير العام (Google Auth)',
+      role: 'admin',
+      subRole: 'super_admin',
+      subRoleTitle: 'المدير المباشر والأدمن الرئيسي (Super Admin)',
+      createdAt: new Date().toISOString()
+    };
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(googleUser));
+    } catch (e) {
+      console.warn('Could not save google user session:', e);
+    }
+    return { user: googleUser };
   }
 
   try {

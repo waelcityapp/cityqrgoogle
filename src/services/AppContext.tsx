@@ -216,7 +216,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const loginWithGoogle = async () => {
-    return await signInWithGoogle();
+    const result = await signInWithGoogle();
+    if (result.user && !result.error) {
+      setCurrentUser(result.user);
+    }
+    return result;
   };
 
   const registerUser = async (email: string, password: string, fullName: string, role: 'user' | 'merchant', subRole?: string, subRoleTitle?: string) => {

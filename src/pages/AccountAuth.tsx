@@ -154,6 +154,11 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
       const result = await loginWithGoogle();
       if (result?.error) {
         setErrorMsg(result.error);
+      } else if (result?.user) {
+        setSuccessMsg(language === 'ar' ? '🎉 تم تسجيل الدخول بنجاح بحساب جوجل!' : '🎉 Signed in successfully with Google!');
+        if (onNavigate) {
+          setTimeout(() => onNavigate('dashboard'), 1200);
+        }
       }
     } catch (err: any) {
       setErrorMsg(err?.message || (language === 'ar' ? 'فشل بدء عملية تسجيل الدخول بحساب جوجل' : 'Failed to start Google sign-in'));
