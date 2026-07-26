@@ -31,10 +31,19 @@ export interface UserProfile {
   fullName?: string;
   fullNameAr?: string;
   fullNameEn?: string;
+  avatarUrl?: string; // Profile picture / avatar
+  phoneNumber?: string; // Phone number
+  whatsappNumber?: string; // WhatsApp number
+  bio?: string; // Brief bio / description
   createdAt: string;
   affiliateCode?: string; // Unique marketing referral code
   walletBalance?: number; // Digital wallet balance in EGP/USD
   monthlyPlanPrice?: number; // Monthly subscription fee
+  contactPreferences?: {
+    email: boolean;
+    sms: boolean;
+    whatsapp: boolean;
+  };
 }
 
 // Landmark Category Type

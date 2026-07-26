@@ -36,7 +36,12 @@ import {
   DollarSign,
   BadgePercent,
   Bell,
-  Star
+  Star,
+  Camera,
+  Edit3,
+  Phone,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useApp } from '../services/AppContext';
 
@@ -142,7 +147,73 @@ interface AccountAuthProps {
 }
 
 export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMode }) => {
-  const { language, currentUser, loginUser, loginWithGoogle, registerUser, logoutUser, switchUserRole, supabaseActive } = useApp();
+  const { language, currentUser, loginUser, loginWithGoogle, registerUser, logoutUser, switchUserRole, updateUserProfile, supabaseActive } = useApp();
+
+  // Profile Editor state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editFullName, setEditFullName] = useState(currentUser?.fullName || '');
+  const [editAvatarUrl, setEditAvatarUrl] = useState(currentUser?.avatarUrl || '');
+  const [editPhoneNumber, setEditPhoneNumber] = useState(currentUser?.phoneNumber || '');
+  const [editRole, setEditRole] = useState<'user' | 'merchant'>(currentUser?.role === 'merchant' ? 'merchant' : 'user');
+  const [editSubRole, setEditSubRole] = useState<string>(currentUser?.subRole || 'citizen');
+  const [editSubRoleTitle, setEditSubRoleTitle] = useState<string>(currentUser?.subRoleTitle || '');
+  const [editContactPreferences, setEditContactPreferences] = useState({
+    email: currentUser?.contactPreferences?.email ?? true,
+    sms: currentUser?.contactPreferences?.sms ?? false,
+    whatsapp: currentUser?.contactPreferences?.whatsapp ?? false,
+  });
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState<string | null>(null);
+
+  // Sync editor state when currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      setEditFullName(currentUser.fullName || '');
+      setEditAvatarUrl(currentUser.avatarUrl || '');
+      setEditPhoneNumber(currentUser.phoneNumber || '');
+      setEditRole(currentUser.role === 'merchant' ? 'merchant' : 'user');
+      setEditSubRole(currentUser.subRole || 'citizen');
+      setEditSubRoleTitle(currentUser.subRoleTitle || '');
+      setEditContactPreferences({
+        email: currentUser.contactPreferences?.email ?? true,
+        sms: currentUser.contactPreferences?.sms ?? false,
+        whatsapp: currentUser.contactPreferences?.whatsapp ?? false,
+      });
+    }
+  }, [currentUser]);
+
+  const AVATAR_PRESETS = [
+    { id: '1', name: 'المدير العام', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80' },
+    { id: '2', name: 'رجل أعمال VIP', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80' },
+    { id: '3', name: 'سيدة أعمال', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80' },
+    { id: '4', name: 'شريك تجاري', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80' },
+    { id: '5', name: 'عضو النخبة', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80' },
+    { id: '6', name: 'مواطن مميز', url: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=300&q=80' },
+    { id: '7', name: 'رمز كرتوني 1', url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser?.email || 'cityuser1')}` },
+    { id: '8', name: 'رمز كرتوني 2', url: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(currentUser?.email || 'cityuser2')}` },
+  ];
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    const subList = editRole === 'merchant' ? MERCHANT_SUB_ROLES : USER_SUB_ROLES;
+    const matchedSub = subList.find(s => s.id === editSubRole) || subList[0];
+    const finalSubTitle = editSubRoleTitle || (language === 'ar' ? matchedSub?.titleAr : matchedSub?.titleEn);
+
+    updateUserProfile({
+      fullName: editFullName.trim(),
+      avatarUrl: editAvatarUrl.trim(),
+      phoneNumber: editPhoneNumber.trim(),
+      role: editRole,
+      subRole: editSubRole,
+      subRoleTitle: finalSubTitle,
+      contactPreferences: editContactPreferences
+    });
+
+    setProfileSuccessMsg(language === 'ar' ? '🎉 تم حفظ وتحديث بيانات ملفك الشخصي بنجاح!' : '🎉 Profile updated successfully!');
+    setTimeout(() => {
+      setProfileSuccessMsg(null);
+      setIsEditingProfile(false);
+    }, 1800);
+  };
 
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
@@ -356,7 +427,7 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
     : `Create User Account (${subTitleEn})`;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in py-4 px-2 sm:px-4">
+    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in py-4 px-2 sm:px-4 pb-32">
       
 
       {/* LOGGED IN VIEW: User Profile & Custom Permissions Dashboard */}
@@ -366,71 +437,226 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          {/* Main User Card */}
-          <div className="relative overflow-hidden rounded-3xl border-2 border-[#D4AF37]/40 bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-950 p-6 sm:p-8 shadow-2xl">
-            <div className="absolute top-0 left-0 w-full h-0.5 animated-glow-line"></div>
-
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-              <div className="flex items-start gap-5">
-                <div className={`p-4 rounded-2xl border-2 ${
-                  currentUser.role === 'merchant' || currentUser.role === 'admin'
-                    ? 'bg-[#8B0000]/20 border-[#D4AF37] text-[#D4AF37] shadow-[0_0_20px_rgba(212,175,55,0.3)]'
-                    : 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
-                }`}>
-                  {currentUser.role === 'merchant' || currentUser.role === 'admin' ? (
-                    <Store className="w-10 h-10" />
-                  ) : (
-                    <UserCheck className="w-10 h-10" />
-                  )}
+                    {/* Main User Profile Card - REBUILT */}
+          <div className="relative overflow-hidden rounded-3xl border-2 border-[#D4AF37]/50 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-6 sm:p-8 shadow-2xl space-y-8">
+            <div className="absolute top-0 left-0 w-full h-1 animated-glow-line"></div>
+            
+            {/* UPPER SECTION: Avatar, Info, & Big Action Buttons side by side */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-8 border-b border-zinc-800/80 pb-8">
+              
+              <div className="flex flex-col sm:flex-row items-center gap-6 w-full md:w-auto">
+                <div className="relative group shrink-0">
+                  <div className="w-28 h-28 rounded-full border-4 border-[#D4AF37] p-1 bg-gradient-to-tr from-[#D4AF37] via-amber-500 to-[#8B0000] shadow-[0_0_30px_rgba(212,175,55,0.4)] overflow-hidden">
+                    <img
+                      src={currentUser.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser.email || currentUser.fullName || 'user')}`}
+                      alt={currentUser.fullName || 'User Avatar'}
+                      className="w-full h-full rounded-full object-cover bg-zinc-900"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${
-                      currentUser.role === 'merchant' || currentUser.role === 'admin'
-                        ? 'bg-[#D4AF37] text-zinc-950 border-[#D4AF37]'
-                        : 'bg-emerald-500 text-zinc-950 border-emerald-500'
-                    }`}>
+                <div className="text-center sm:text-start space-y-3">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    <span className="px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border bg-[#D4AF37] text-zinc-950 border-[#D4AF37] shadow-lg">
                       {currentUser.role === 'merchant' || currentUser.role === 'admin'
-                        ? (language === 'ar' ? 'حساب تاجر / شريك تجاري' : 'MERCHANT PARTNER ROLE')
-                        : (language === 'ar' ? 'حساب عميل / مستخدم' : 'CUSTOMER / USER ROLE')}
+                        ? (language === 'ar' ? 'حساب تاجر / شريك تجاري' : 'MERCHANT PARTNER')
+                        : (language === 'ar' ? 'حساب عميل / مستخدم' : 'CUSTOMER USER')}
                     </span>
-                    {(currentUser.subRoleTitle || currentUser.subRole) && (
-                      <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-zinc-800 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shadow-sm">
-                        <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-                        <span>{currentUser.subRoleTitle || (language === 'ar' ? `تصنيف: ${currentUser.subRole}` : `Tier: ${currentUser.subRole}`)}</span>
-                      </span>
-                    )}
-                    <span className="text-xs text-zinc-500 font-mono">
-                      ID: {currentUser.id.substring(0, 14)}...
+                    <span className="text-xs text-zinc-500 font-mono font-bold bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800">
+                      ID: {currentUser.id.substring(0, 8)}...
                     </span>
                   </div>
-
-                  <h2 className="text-2xl font-black text-white">
+                  <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
                     {currentUser.fullName || currentUser.email.split('@')[0]}
                   </h2>
-                  <p className="text-sm font-mono text-zinc-400 flex items-center gap-1.5">
-                    <Mail className="w-4 h-4 text-zinc-500" />
-                    <span>{currentUser.email}</span>
-                  </p>
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-sm font-mono text-zinc-300">
+                    <span className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-[#D4AF37]" />
+                      <span>{currentUser.email}</span>
+                    </span>
+                    {currentUser.phoneNumber && (
+                      <span className="flex items-center gap-2 text-amber-300">
+                        <Phone className="w-4 h-4 text-[#D4AF37]" />
+                        <span>{currentUser.phoneNumber}</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Logout & Actions */}
-              <div className="flex flex-wrap items-center gap-3">
+              {/* ACTION BUTTONS: Edit Profile & Sign Out - Very Prominent */}
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto shrink-0 bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
+                <button
+                  onClick={() => setIsEditingProfile(!isEditingProfile)}
+                  className={`w-full sm:w-auto flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl font-black text-sm transition-all duration-300 shadow-xl cursor-pointer border-2 ${
+                    isEditingProfile 
+                      ? 'bg-zinc-800 border-zinc-600 text-white hover:bg-zinc-700 hover:border-zinc-500' 
+                      : 'bg-gradient-to-r from-[#D4AF37] to-amber-500 hover:from-amber-400 hover:to-amber-500 text-black border-[#D4AF37] hover:scale-105'
+                  }`}
+                >
+                  <Edit3 className="w-5 h-5 stroke-[2.5]" />
+                  <span>{isEditingProfile ? (language === 'ar' ? 'إلغاء التعديل ✖' : 'Cancel Edit ✖') : (language === 'ar' ? 'تعديل الملف الشخصي' : 'Edit Profile')}</span>
+                </button>
                 <button
                   onClick={logoutUser}
-                  className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-400 hover:text-white border border-red-500/30 font-bold text-xs transition shadow-lg cursor-pointer"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-red-950/60 hover:bg-red-600 text-red-400 hover:text-white border-2 border-red-500/40 hover:border-red-500 font-black text-sm transition-all duration-300 shadow-xl cursor-pointer"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-5 h-5 stroke-[2.5]" />
                   <span>{language === 'ar' ? 'تسجيل الخروج' : 'Sign Out'}</span>
                 </button>
               </div>
+
             </div>
 
-          </div>
+            {profileSuccessMsg && (
+              <div className="p-5 rounded-2xl bg-emerald-500/20 border-2 border-emerald-500/50 text-emerald-300 text-sm font-black flex items-center gap-3 shadow-[0_0_20px_rgba(16,185,129,0.2)] animate-fade-in">
+                <CheckCircle2 className="w-6 h-6 shrink-0" />
+                <span>{profileSuccessMsg}</span>
+              </div>
+            )}
 
-          {/* 📬 PERSONAL MEMBER NOTIFICATIONS INBOX (صندوق إشعارات الحساب الشخصي الموجهة حسب الفئة) */}
+            {/* PROFILE EDITOR PANEL */}
+            {isEditingProfile && (
+              <div className="p-6 sm:p-8 rounded-3xl border-2 border-[#D4AF37]/50 bg-zinc-950 shadow-[inset_0_0_50px_rgba(0,0,0,0.8)] animate-fade-in space-y-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
+                  <h3 className="text-xl font-black text-[#D4AF37] flex items-center gap-3">
+                    <Edit3 className="w-6 h-6" />
+                    <span>{language === 'ar' ? 'تعديل بيانات الحساب' : 'Edit Account Details'}</span>
+                  </h3>
+                  <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-mono border border-amber-500/30">
+                    {language === 'ar' ? 'تحديث البيانات' : 'Update Profile'}
+                  </span>
+                </div>
+                
+                <form onSubmit={handleSaveProfile} className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    
+                    <div className="space-y-3">
+                      <label className="text-sm font-black text-zinc-200 flex items-center gap-2">
+                        <User className="w-4 h-4 text-[#D4AF37]" />
+                        <span>{language === 'ar' ? 'الاسم الكامل:' : 'Full Name:'}</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={editFullName}
+                        onChange={(e) => setEditFullName(e.target.value)}
+                        placeholder={language === 'ar' ? 'أدخل اسمك الكامل...' : 'Enter your full name...'}
+                        className="w-full px-5 py-4 rounded-2xl bg-zinc-900 border-2 border-zinc-800 text-white text-sm outline-none focus:border-[#D4AF37] transition font-bold shadow-inner"
+                      />
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <label className="text-sm font-black text-zinc-200 flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-[#D4AF37]" />
+                        <span>{language === 'ar' ? 'رقم الهاتف:' : 'Phone Number:'}</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={editPhoneNumber}
+                        onChange={(e) => setEditPhoneNumber(e.target.value)}
+                        placeholder={language === 'ar' ? '+201xxxxxxxxx...' : 'Enter phone number...'}
+                        className="w-full px-5 py-4 rounded-2xl bg-zinc-900 border-2 border-zinc-800 text-white text-sm outline-none focus:border-[#D4AF37] transition font-bold font-mono shadow-inner"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="text-sm font-black text-zinc-200 flex items-center gap-2">
+                      <Camera className="w-4 h-4 text-[#D4AF37]" />
+                      <span>{language === 'ar' ? 'صورة الحساب (Avatar URL):' : 'Avatar URL:'}</span>
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <input
+                        type="url"
+                        value={editAvatarUrl}
+                        onChange={(e) => setEditAvatarUrl(e.target.value)}
+                        placeholder={language === 'ar' ? 'أو ألصق رابط صورة هنا...' : 'Or paste image URL here...'}
+                        className="w-full px-5 py-4 rounded-2xl bg-zinc-900 border-2 border-zinc-800 text-white text-sm outline-none focus:border-[#D4AF37] transition font-mono shadow-inner"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const demoPhotos = [
+                            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+                            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+                            'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80',
+                            'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80'
+                          ];
+                          setEditAvatarUrl(demoPhotos[Math.floor(Math.random() * demoPhotos.length)]);
+                        }}
+                        className="px-6 py-4 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-black text-sm whitespace-nowrap cursor-pointer transition flex items-center justify-center gap-2 shrink-0 border-2 border-zinc-700 hover:border-zinc-500 shadow-lg"
+                      >
+                        <Upload className="w-4 h-4 text-[#D4AF37]" />
+                        <span>{language === 'ar' ? 'صورة عشوائية' : 'Random Photo'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-zinc-800 space-y-5">
+                    <label className="text-sm font-black text-[#D4AF37] flex items-center gap-2">
+                      <Bell className="w-5 h-5" />
+                      <span>{language === 'ar' ? 'تفضيلات التواصل والإشعارات:' : 'Contact Preferences:'}</span>
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <label className="flex items-center gap-4 p-4 rounded-2xl border-2 border-zinc-800 bg-zinc-900 cursor-pointer hover:border-[#D4AF37] transition group shadow-inner">
+                        <input
+                          type="checkbox"
+                          checked={editContactPreferences.email}
+                          onChange={(e) => setEditContactPreferences({ ...editContactPreferences, email: e.target.checked })}
+                          className="w-5 h-5 rounded text-[#D4AF37] focus:ring-[#D4AF37] focus:ring-offset-zinc-900 bg-zinc-800 border-zinc-700 cursor-pointer"
+                        />
+                        <span className="text-sm font-black text-zinc-300 group-hover:text-white">
+                          {language === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-4 p-4 rounded-2xl border-2 border-zinc-800 bg-zinc-900 cursor-pointer hover:border-[#D4AF37] transition group shadow-inner">
+                        <input
+                          type="checkbox"
+                          checked={editContactPreferences.sms}
+                          onChange={(e) => setEditContactPreferences({ ...editContactPreferences, sms: e.target.checked })}
+                          className="w-5 h-5 rounded text-[#D4AF37] focus:ring-[#D4AF37] focus:ring-offset-zinc-900 bg-zinc-800 border-zinc-700 cursor-pointer"
+                        />
+                        <span className="text-sm font-black text-zinc-300 group-hover:text-white">
+                          {language === 'ar' ? 'رسائل SMS' : 'SMS'}
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-4 p-4 rounded-2xl border-2 border-zinc-800 bg-zinc-900 cursor-pointer hover:border-[#D4AF37] transition group shadow-inner">
+                        <input
+                          type="checkbox"
+                          checked={editContactPreferences.whatsapp}
+                          onChange={(e) => setEditContactPreferences({ ...editContactPreferences, whatsapp: e.target.checked })}
+                          className="w-5 h-5 rounded text-[#D4AF37] focus:ring-[#D4AF37] focus:ring-offset-zinc-900 bg-zinc-800 border-zinc-700 cursor-pointer"
+                        />
+                        <span className="text-sm font-black text-zinc-300 group-hover:text-white">
+                          {language === 'ar' ? 'واتساب' : 'WhatsApp'}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-8 border-t border-zinc-800">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingProfile(false)}
+                      className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white font-black text-sm transition cursor-pointer border-2 border-zinc-800 hover:border-zinc-700"
+                    >
+                      {language === 'ar' ? 'إلغاء والتراجع' : 'Cancel'}
+                    </button>
+                    <button
+                      type="submit"
+                      className="w-full sm:w-auto px-10 py-4 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-amber-500 hover:from-amber-400 hover:to-amber-500 text-black font-black text-sm transition-all duration-300 shadow-[0_0_20px_rgba(212,175,55,0.4)] cursor-pointer flex items-center justify-center gap-3 hover:scale-105"
+                    >
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>{language === 'ar' ? 'حفظ التغيرات بنجاح' : 'Save Changes'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+          
+{/* 📬 PERSONAL MEMBER NOTIFICATIONS INBOX (صندوق إشعارات الحساب الشخصي الموجهة حسب الفئة) */}
           <div className="rounded-3xl border-2 border-amber-500/60 bg-gradient-to-b from-zinc-900/95 via-zinc-950 to-black p-6 sm:p-8 shadow-[0_0_35px_rgba(245,158,11,0.2)] relative overflow-hidden space-y-5">
             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
             

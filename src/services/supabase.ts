@@ -884,13 +884,17 @@ export async function signInWithGoogle(): Promise<{ user?: UserProfile; error?: 
     const { error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin
+        redirectTo: window.location.origin,
+        queryParams: {
+          prompt: 'select_account'
+        }
       }
     });
 
     if (error) {
       return { error: error.message };
     }
+    
     return {};
   } catch (err: any) {
     return { error: err?.message || 'فشل بدء عملية تسجيل الدخول بحساب جوجل' };
@@ -1002,4 +1006,13 @@ export function getStoredUserProfile(): UserProfile | null {
   }
   return null;
 }
+
+export function saveUserProfileToStorage(user: UserProfile): void {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(user));
+  } catch (e) {
+    console.warn('Error saving user profile to local storage:', e);
+  }
+}
+
 

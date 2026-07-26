@@ -17,7 +17,8 @@ import {
   getCurrentUserFromSupabaseSession,
   getSupabaseClient,
   signOutFromSupabase,
-  getStoredUserProfile
+  getStoredUserProfile,
+  saveUserProfileToStorage
 } from './supabase';
 import { CountryProfile, detectUserCountry, WORLD_COUNTRIES } from './international';
 
@@ -45,6 +46,7 @@ interface AppContextType {
   registerUser: (email: string, password: string, fullName: string, role: 'user' | 'merchant', subRole?: string, subRoleTitle?: string) => Promise<{ user: UserProfile; error?: string }>;
   logoutUser: () => Promise<void>;
   switchUserRole: (role: 'user' | 'merchant') => void;
+  updateUserProfile: (updates: Partial<UserProfile>) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -201,8 +203,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
 
+      // Listen for local storage changes across tabs (e.g. from OAuth popup)
+      const handleStorageChange = async (e: StorageEvent) => {
+        if (e.key === 'cityqr_local_user' || (e.key && e.key.includes('supabase.auth.token'))) {
+          const user = await getCurrentUserFromSupabaseSession();
+          setCurrentUser(user);
+        }
+      };
+      window.addEventListener('storage', handleStorageChange);
+
       return () => {
         authListener?.subscription?.unsubscribe();
+        window.removeEventListener('storage', handleStorageChange);
       };
     }
   }, []);
@@ -240,11 +252,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentUser) {
       const updated: UserProfile = { ...currentUser, role: newRole };
       setCurrentUser(updated);
-      try {
-        localStorage.setItem('cityqr_current_user', JSON.stringify(updated));
-      } catch (e) {
-        console.warn('Could not save switched role:', e);
-      }
+      saveUserProfileToStorage(updated);
+    }
+  };
+
+  const updateUserProfile = (updates: Partial<UserProfile>) => {
+    if (currentUser) {
+      const updated: UserProfile = { ...currentUser, ...updates };
+      setCurrentUser(updated);
+      saveUserProfileToStorage(updated);
     }
   };
 
@@ -350,7 +366,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loginWithGoogle,
         registerUser,
         logoutUser,
-        switchUserRole
+        switchUserRole,
+        updateUserProfile
       }}
     >
       {children}

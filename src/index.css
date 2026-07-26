@@ -126,11 +126,11 @@ html.light .text-zinc-500:not(button *):not(a *):not(.bg-\[\#8B0000\] *):not(.bg
 }
 
 /* Active status elements inside lists/directories should keep high contrast */
-html.light .bg-[#8B0000] {
+html.light .bg-\[\#8B0000\] {
   background-color: #8B0000 !important;
 }
 
-html.light .bg-[#D4AF37] {
+html.light .bg-\[\#D4AF37\] {
   background-color: #D4AF37 !important;
 }
 

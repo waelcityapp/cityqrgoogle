@@ -69,7 +69,16 @@ function CityQRAppContent() {
   const t = translations[language];
 
   // Current active navigation tab (default is the visitor landing page!)
-  const [activeTab, setActiveTab] = useState('landing');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined' && (window.location.hash.includes('access_token') || window.location.search.includes('code='))) {
+      return 'account';
+    }
+    return 'landing';
+  });
+
+  // Removed auto-redirect so user stays on Account or Landing explicitly.
+
+
   const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signin');
   const [isCountryModalOpen, setIsCountryModalOpen] = useState(false);
   
@@ -598,6 +607,43 @@ function CityQRAppContent() {
           {/* Controls Panel - Horizontally scrollable left & right */}
           <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto max-w-full pb-1 sm:pb-0 scrollbar-none flex-nowrap justify-start sm:justify-end w-full sm:w-auto px-1">
             
+            {/* Logged-In User Profile Quick Badge in Header */}
+            {currentUser ? (
+              <button
+                onClick={() => setActiveTab('account')}
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-[#D4AF37]/60 bg-gradient-to-r from-[#D4AF37]/15 via-amber-500/10 to-[#8B0000]/15 hover:border-[#D4AF37] hover:scale-105 transition cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
+                title={language === 'ar' ? 'عرض الملف الشخصي والتعديل عليه' : 'View & Edit Profile'}
+              >
+                <div className="relative">
+                  <img
+                    src={currentUser.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser.email || currentUser.fullName || 'user')}`}
+                    alt={currentUser.fullName || 'User Avatar'}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-[#D4AF37] object-cover bg-amber-500/10 shadow-sm"
+                    referrerPolicy="no-referrer"
+                  />
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-black" />
+                </div>
+                <div className="text-right flex flex-col items-start leading-none gap-0.5">
+                  <span className="text-xs font-black text-black dark:text-white max-w-[100px] sm:max-w-[130px] truncate">
+                    {currentUser.fullName || currentUser.email.split('@')[0]}
+                  </span>
+                  <span className="text-[9px] font-extrabold text-[#D4AF37] font-mono">
+                    {currentUser.role === 'merchant' || currentUser.role === 'admin'
+                      ? (language === 'ar' ? 'تاجر / شريك' : 'Merchant')
+                      : (currentUser.subRoleTitle || (language === 'ar' ? 'عضو مميز' : 'Member'))}
+                  </span>
+                </div>
+              </button>
+            ) : (
+              <button
+                onClick={() => { setAuthInitialMode('signin'); setActiveTab('account'); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#D4AF37]/50 bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] text-xs font-bold transition cursor-pointer shrink-0 whitespace-nowrap"
+              >
+                <User className="w-4 h-4 text-[#D4AF37]" />
+                <span>{language === 'ar' ? 'تسجيل الدخول' : 'Sign In'}</span>
+              </button>
+            )}
+
             {/* Install App Button */}
             <button
               onClick={() => setIsInstallModalOpen(true)}
@@ -665,11 +711,13 @@ function CityQRAppContent() {
         {/* Tab Navigation Menu (Hidden on mobile where bottom nav is active) */}
         <nav className="hidden md:flex justify-start border-b border-zinc-200 dark:border-zinc-900 pb-px max-w-full overflow-x-auto gap-1 scrollbar-none">
           {[
-            { id: 'landing', label: t.visitorPortal, icon: Compass },
-            { id: 'scanner', label: t.scanner, icon: QrCode },
-            { id: 'emergency', label: t.emergency, icon: ShieldAlert },
-            { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'My Account') : (language === 'ar' ? 'إنشاء حساب' : 'Create Account'), icon: User, hasNotification: currentUser ? myPersonalNotifsCount > 0 : !currentUser, badgeCount: currentUser ? myPersonalNotifsCount : 1, isAvatar: !!currentUser },
-          ].map((item) => {
+          currentUser 
+            ? { id: 'dashboard', label: language === 'ar' ? 'الرئيسية' : 'Dashboard', icon: LayoutDashboard } 
+            : { id: 'landing', label: t.visitorPortal, icon: Compass },
+          { id: 'scanner', label: t.scanner, icon: QrCode },
+          { id: 'emergency', label: t.emergency, icon: ShieldAlert },
+          { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'My Account') : (language === 'ar' ? 'إنشاء حساب' : 'Create Account'), icon: User, hasNotification: currentUser ? myPersonalNotifsCount > 0 : !currentUser, badgeCount: currentUser ? myPersonalNotifsCount : 1, isAvatar: !!currentUser },
+        ].map((item) => {
             const Icon = item.icon;
             const isSelected = activeTab === item.id;
             return (
@@ -685,7 +733,7 @@ function CityQRAppContent() {
                 <div className="relative flex items-center">
                   {item.isAvatar ? (
                     <img
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser?.email || currentUser?.fullName || 'user')}`}
+                      src={currentUser?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser?.email || currentUser?.fullName || 'user')}`}
                       alt="User Avatar"
                       className="w-5 h-5 rounded-full border border-[#D4AF37] object-cover bg-amber-500/10 shadow-sm"
                       referrerPolicy="no-referrer"
@@ -772,7 +820,9 @@ function CityQRAppContent() {
       {/* Bottom Navigation Bar (Fixed at bottom for native mobile app experience, hidden on desktop) */}
       <nav className="flex md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg border-t border-zinc-200 dark:border-zinc-800 shadow-2xl px-2 py-1.5 justify-around items-center">
         {[
-          { id: 'landing', label: t.visitorPortal, icon: Compass },
+          currentUser 
+            ? { id: 'dashboard', label: language === 'ar' ? 'الرئيسية' : 'Dashboard', icon: LayoutDashboard } 
+            : { id: 'landing', label: t.visitorPortal, icon: Compass },
           { id: 'scanner', label: t.scanner, icon: QrCode },
           { id: 'emergency', label: t.emergency, icon: ShieldAlert },
           { id: 'account', label: currentUser ? (language === 'ar' ? 'حسابي' : 'My Account') : (language === 'ar' ? 'إنشاء حساب' : 'Create Account'), icon: User, hasNotification: currentUser ? myPersonalNotifsCount > 0 : !currentUser, badgeCount: currentUser ? myPersonalNotifsCount : 1, isAvatar: !!currentUser },
@@ -799,7 +849,7 @@ function CityQRAppContent() {
               }`}>
                 {item.isAvatar ? (
                   <img
-                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser?.email || currentUser?.fullName || 'user')}`}
+                    src={currentUser?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser?.email || currentUser?.fullName || 'user')}`}
                     alt="User Avatar"
                     className="w-6 h-6 rounded-full border border-[#D4AF37] object-cover bg-amber-500/10 shadow-sm"
                     referrerPolicy="no-referrer"
