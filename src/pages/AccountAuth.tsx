@@ -227,10 +227,16 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
       setIsEditingProfile(false);
       setProfileSuccessMsg(language === 'ar' ? '🎉 تم حفظ وتحديث بيانات الملف الشخصي بنجاح!' : '🎉 Profile updated and saved successfully!');
       setTimeout(() => setProfileSuccessMsg(null), 4000);
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Error saving profile:', err);
-      setProfileErrorMsg(language === 'ar' ? 'عفواً، فشل الحفظ: ' + (err as any).message : 'Failed to save: ' + (err as any).message);
-      setTimeout(() => setProfileErrorMsg(null), 5000);
+      let errMsg = err?.message || 'Unknown error';
+      if (errMsg.includes('Failed to fetch')) {
+        errMsg = language === 'ar' ? 'حدث خطأ في الاتصال بقاعدة البيانات. الرجاء التأكد من اتصالك بالإنترنت أو إيقاف مانع الإعلانات (AdBlocker).' : 'Connection to database failed. Please check your internet or disable AdBlocker.';
+      } else {
+        errMsg = language === 'ar' ? 'عفواً، فشل الحفظ: ' + errMsg : 'Failed to save: ' + errMsg;
+      }
+      setProfileErrorMsg(errMsg);
+      setTimeout(() => setProfileErrorMsg(null), 8000);
     } finally {
       setIsSavingProfile(false);
     }
@@ -739,20 +745,19 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                       {language === 'ar' ? 'إلغاء والتراجع' : 'Cancel'}
                     </button>
                     <button
-                      type="button"
-                      onClick={handleSaveProfile}
+                      type="submit"
                       disabled={isSavingProfile}
-                      className="w-full sm:w-auto px-10 py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-black text-sm transition-all duration-300 shadow-[0_0_20px_rgba(37,99,235,0.4)] cursor-pointer flex items-center justify-center gap-3 hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed active:scale-95 touch-manipulation"
+                      className="w-full sm:w-auto px-10 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all shadow-lg shadow-blue-500/30 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                       {isSavingProfile ? (
                         <>
-                          <RefreshCw className="w-5 h-5 animate-spin text-white" />
+                          <RefreshCw className="w-5 h-5 animate-spin" />
                           <span>{language === 'ar' ? 'جاري الحفظ...' : 'Saving...'}</span>
                         </>
                       ) : (
                         <>
-                          <CheckCircle2 className="w-5 h-5 text-white" />
-                          <span>{language === 'ar' ? 'حفظ التغيرات' : 'Save Changes'}</span>
+                          <CheckCircle2 className="w-5 h-5" />
+                          <span>{language === 'ar' ? 'حفظ التعديلات' : 'Save Changes'}</span>
                         </>
                       )}
                     </button>

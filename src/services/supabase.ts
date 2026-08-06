@@ -14,6 +14,10 @@ export function getSupabaseClient() {
   if (!isSupabaseConfigured) {
     return null;
   }
+  if (!supabaseUrl.startsWith('https://')) {
+    console.error('Invalid Supabase URL: Must start with https://');
+    return null;
+  }
   if (!supabaseClient) {
     supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
   }
@@ -1070,7 +1074,7 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
         };
         if (finalAvatar) syncPayloadFull.avatar_url = finalAvatar;
 
-        const { error: syncErr1 } = await (client.from('profiles') as any).upsert(syncPayloadFull, { onConflict: 'email' });
+        const { error: syncErr1 } = await (client.from('profiles') as any).upsert(syncPayloadFull, { onConflict: 'id' });
         if (syncErr1) {
           const syncPayloadCore: any = {
             id: profile.id || user.id,
@@ -1081,7 +1085,7 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
             updated_at: new Date().toISOString()
           };
           if (finalAvatar) syncPayloadCore.avatar_url = finalAvatar;
-          await (client.from('profiles') as any).upsert(syncPayloadCore, { onConflict: 'email' }).catch(() => null);
+          await (client.from('profiles') as any).upsert(syncPayloadCore, { onConflict: 'id' }).catch(() => null);
         }
       } catch (e) {
         console.warn('Could not sync updated OAuth profile to DB:', e);
@@ -1128,7 +1132,7 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
           created_at: authCreatedAt,
           updated_at: new Date().toISOString()
         };
-        const { error: createErr } = await (client.from('profiles') as any).upsert(createFull, { onConflict: 'email' });
+        const { error: createErr } = await (client.from('profiles') as any).upsert(createFull, { onConflict: 'id' });
         if (createErr) {
           const createCore: any = {
             id: user.id || newId,
@@ -1140,7 +1144,7 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
             created_at: authCreatedAt,
             updated_at: new Date().toISOString()
           };
-          await (client.from('profiles') as any).upsert(createCore, { onConflict: 'email' }).catch(() => null);
+          await (client.from('profiles') as any).upsert(createCore, { onConflict: 'id' }).catch(() => null);
         }
       } catch (e) {}
     }
@@ -1294,15 +1298,17 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
 
       let updatedInDB = false;
 
-      // Helper 1: Attempt update query without forcing select('id')
+      // Helper 1: Attempt update query forcing select('id') to confirm rows were actually modified
       const doUpdate = async (fields: any): Promise<boolean> => {
         if (user.email) {
-          const { error } = await client.from('profiles').update(fields).eq('email', user.email);
-          if (!error) return true;
+          const { data, error } = await client.from('profiles').update(fields).eq('email', user.email).select('id');
+          if (error) lastError = error;
+          if (!error && data && data.length > 0) return true;
         }
         if (user.id) {
-          const { error } = await client.from('profiles').update(fields).eq('id', user.id);
-          if (!error) return true;
+          const { data, error } = await client.from('profiles').update(fields).eq('id', user.id).select('id');
+          if (error) lastError = error;
+          if (!error && data && data.length > 0) return true;
         }
         return false;
       };
@@ -1314,8 +1320,12 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
           ...(user.email ? { email: user.email } : {}),
           ...fields
         };
-        const { error } = await client.from('profiles').upsert(record, { onConflict: 'email' });
-        return !error;
+        const { error } = await client.from('profiles').upsert(record, { onConflict: 'id' });
+        if (error) {
+           lastError = error;
+           return false;
+        }
+        return true;
       };
 
       // Level 1: Full payload update
@@ -1345,20 +1355,29 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
       }
 
       console.log('Profile update process completed. DB update success status:', updatedInDB);
+      
+      if (!updatedInDB) {
+        throw new Error(lastError?.message || 'Update failed: No rows matched or permission denied.');
+      }
     } catch (e: any) {
       console.warn('Failed to update profile in Supabase:', e?.message || e);
+      if (e?.message?.includes('Failed to fetch')) {
+         throw new Error('Failed to fetch: Unable to connect to Supabase. Your project might be paused, the URL might be incorrect, or you are offline.');
+      }
+      throw e;
     }
   };
 
   const timeoutTask = new Promise<void>((_, reject) => {
     setTimeout(() => {
-      reject(new Error('Supabase request timed out'));
-    }, 8000);
+      reject(new Error('الشبكة ضعيفة، انتهى وقت محاولة الحفظ. الرجاء المحاولة مرة أخرى.'));
+    }, 20000);
   });
 
   try {
     await Promise.race([updateTask(), timeoutTask]);
   } catch (err) {
     console.warn('Profile background sync timeout/error:', err);
+    throw err;
   }
 }

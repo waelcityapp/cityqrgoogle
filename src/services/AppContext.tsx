@@ -316,6 +316,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await updateUserProfileInSupabase(updated);
       } catch (err) {
         console.warn('Background Supabase update warning:', err);
+        throw err;
       }
     }
   };
