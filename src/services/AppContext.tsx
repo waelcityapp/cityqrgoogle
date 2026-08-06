@@ -18,7 +18,8 @@ import {
   getSupabaseClient,
   signOutFromSupabase,
   getStoredUserProfile,
-  saveUserProfileToStorage
+  saveUserProfileToStorage,
+  updateUserProfileInSupabase
 } from './supabase';
 import { CountryProfile, detectUserCountry, WORLD_COUNTRIES } from './international';
 
@@ -188,31 +189,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Listen for Supabase OAuth / Session changes (e.g. after Google Sign-In redirect)
   useEffect(() => {
     const client = getSupabaseClient();
-    if (client) {
-      // Check existing session
-      getCurrentUserFromSupabaseSession().then((user) => {
-        if (user) setCurrentUser(user);
-      });
 
-      const { data: authListener } = client.auth.onAuthStateChange(async (event) => {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-          const user = await getCurrentUserFromSupabaseSession();
-          if (user) setCurrentUser(user);
+    const storedUser = getStoredUserProfile();
+    if (storedUser && !currentUser) {
+      setCurrentUser(storedUser);
+    }
+
+    if (client) {
+      let isSyncing = false;
+      const syncSessionUser = async (providedSession?: any) => {
+        if (isSyncing) return;
+        isSyncing = true;
+        try {
+          const user = await getCurrentUserFromSupabaseSession(providedSession);
+          if (user) {
+            setCurrentUser(user);
+            saveUserProfileToStorage(user);
+            if (typeof window !== 'undefined' && (window.location.hash.includes('access_token') || window.location.search.includes('code='))) {
+              window.history.replaceState(null, '', window.location.pathname);
+            }
+          }
+        } catch (e) {
+          console.warn('Session sync warning:', e);
+        } finally {
+          isSyncing = false;
+        }
+      };
+
+      // Handle auth state changes cleanly
+      const { data: authListener } = client.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || (event === 'INITIAL_SESSION' && session)) {
+          await syncSessionUser(session);
         } else if (event === 'SIGNED_OUT') {
           setCurrentUser(null);
         }
       });
 
-      // Listen for local storage changes across tabs (e.g. from OAuth popup)
+      // Fallback single check if auth listener didn't trigger session
+      const initialTimer = setTimeout(() => {
+        if (!currentUser) {
+          syncSessionUser();
+        }
+      }, 500);
+
+      // Listen for local storage changes across tabs or windows
       const handleStorageChange = async (e: StorageEvent) => {
-        if (e.key === 'cityqr_local_user' || (e.key && e.key.includes('supabase.auth.token'))) {
-          const user = await getCurrentUserFromSupabaseSession();
-          setCurrentUser(user);
+        if (e.key === 'cityqr_local_user' || e.key === 'cityqr_current_user' || (e.key && e.key.includes('supabase.auth.token'))) {
+          const user = await getCurrentUserFromSupabaseSession() || getStoredUserProfile();
+          if (user) setCurrentUser(user);
         }
       };
       window.addEventListener('storage', handleStorageChange);
 
       return () => {
+        clearTimeout(initialTimer);
         authListener?.subscription?.unsubscribe();
         window.removeEventListener('storage', handleStorageChange);
       };
@@ -223,6 +253,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const result = await signInWithSupabase(email, password);
     if (result.user && !result.error) {
       setCurrentUser(result.user);
+      saveUserProfileToStorage(result.user);
     }
     return { user: result.user, error: result.error };
   };
@@ -231,6 +262,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const result = await signInWithGoogle();
     if (result.user && !result.error) {
       setCurrentUser(result.user);
+      saveUserProfileToStorage(result.user);
     }
     return result;
   };
@@ -239,13 +271,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const result = await signUpWithSupabase(email, password, fullName, role, subRole, subRoleTitle);
     if (result.user && !result.error) {
       setCurrentUser(result.user);
+      saveUserProfileToStorage(result.user);
     }
     return { user: result.user, error: result.error };
   };
 
   const logoutUser = async () => {
-    await signOutFromSupabase();
-    setCurrentUser(null);
+    try {
+      setCurrentUser(null);
+      localStorage.removeItem('cityqr_current_user');
+      localStorage.removeItem('cityqr_local_user');
+      localStorage.removeItem(LOCAL_STORAGE_KEY_USER);
+      
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase.auth')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      await signOutFromSupabase();
+    } catch(e) { 
+      console.warn('Signout err', e);
+    } finally {
+      window.location.hash = '';
+      window.location.reload();
+    }
   };
 
   const switchUserRole = (newRole: 'user' | 'merchant') => {
@@ -256,11 +306,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updateUserProfile = (updates: Partial<UserProfile>) => {
-    if (currentUser) {
-      const updated: UserProfile = { ...currentUser, ...updates };
+  const updateUserProfile = async (updates: Partial<UserProfile>) => {
+    const baseUser = currentUser || getStoredUserProfile();
+    if (baseUser) {
+      const updated: UserProfile = { ...baseUser, ...updates };
       setCurrentUser(updated);
       saveUserProfileToStorage(updated);
+      try {
+        await updateUserProfileInSupabase(updated);
+      } catch (err) {
+        console.warn('Background Supabase update warning:', err);
+      }
     }
   };
 

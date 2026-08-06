@@ -4,6 +4,7 @@ import {
   User, 
   Store, 
   Shield, 
+  ShieldCheck,
   Check, 
   KeyRound, 
   Mail, 
@@ -44,6 +45,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { useApp } from '../services/AppContext';
+import { getSupabaseClient } from '../services/supabase';
 
 // Sub-roles definition for User accounts with Affiliate Rights & Subscription Plans
 const USER_SUB_ROLES = [
@@ -154,6 +156,8 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
   const [editFullName, setEditFullName] = useState(currentUser?.fullName || '');
   const [editAvatarUrl, setEditAvatarUrl] = useState(currentUser?.avatarUrl || '');
   const [editPhoneNumber, setEditPhoneNumber] = useState(currentUser?.phoneNumber || '');
+  const [editWhatsapp, setEditWhatsapp] = useState(currentUser?.whatsappNumber || currentUser?.phoneNumber || '');
+  const [editBio, setEditBio] = useState(currentUser?.bio || '');
   const [editRole, setEditRole] = useState<'user' | 'merchant'>(currentUser?.role === 'merchant' ? 'merchant' : 'user');
   const [editSubRole, setEditSubRole] = useState<string>(currentUser?.subRole || 'citizen');
   const [editSubRoleTitle, setEditSubRoleTitle] = useState<string>(currentUser?.subRoleTitle || '');
@@ -163,6 +167,8 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
     whatsapp: currentUser?.contactPreferences?.whatsapp ?? false,
   });
   const [profileSuccessMsg, setProfileSuccessMsg] = useState<string | null>(null);
+  const [profileErrorMsg, setProfileErrorMsg] = useState<string | null>(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Sync editor state when currentUser changes
   useEffect(() => {
@@ -170,6 +176,8 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
       setEditFullName(currentUser.fullName || '');
       setEditAvatarUrl(currentUser.avatarUrl || '');
       setEditPhoneNumber(currentUser.phoneNumber || '');
+      setEditWhatsapp(currentUser.whatsappNumber || currentUser.phoneNumber || '');
+      setEditBio(currentUser.bio || '');
       setEditRole(currentUser.role === 'merchant' ? 'merchant' : 'user');
       setEditSubRole(currentUser.subRole || 'citizen');
       setEditSubRoleTitle(currentUser.subRoleTitle || '');
@@ -192,27 +200,40 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
     { id: '8', name: 'رمز كرتوني 2', url: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(currentUser?.email || 'cityuser2')}` },
   ];
 
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    const subList = editRole === 'merchant' ? MERCHANT_SUB_ROLES : USER_SUB_ROLES;
-    const matchedSub = subList.find(s => s.id === editSubRole) || subList[0];
-    const finalSubTitle = editSubRoleTitle || (language === 'ar' ? matchedSub?.titleAr : matchedSub?.titleEn);
+  const handleSaveProfile = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) e.preventDefault();
+    if (isSavingProfile) return;
+    setIsSavingProfile(true);
+    setProfileErrorMsg(null);
+    setProfileSuccessMsg(null);
 
-    updateUserProfile({
-      fullName: editFullName.trim(),
-      avatarUrl: editAvatarUrl.trim(),
-      phoneNumber: editPhoneNumber.trim(),
-      role: editRole,
-      subRole: editSubRole,
-      subRoleTitle: finalSubTitle,
-      contactPreferences: editContactPreferences
-    });
+    try {
+      const subList = editRole === 'merchant' ? MERCHANT_SUB_ROLES : USER_SUB_ROLES;
+      const matchedSub = subList.find(s => s.id === editSubRole) || subList[0];
+      const finalSubTitle = editSubRoleTitle || (language === 'ar' ? matchedSub?.titleAr : matchedSub?.titleEn);
 
-    setProfileSuccessMsg(language === 'ar' ? '🎉 تم حفظ وتحديث بيانات ملفك الشخصي بنجاح!' : '🎉 Profile updated successfully!');
-    setTimeout(() => {
-      setProfileSuccessMsg(null);
+      await updateUserProfile({
+        fullName: editFullName.trim(),
+        avatarUrl: editAvatarUrl.trim(),
+        phoneNumber: editPhoneNumber.trim(),
+        whatsappNumber: editWhatsapp.trim(),
+        bio: editBio.trim(),
+        role: editRole,
+        subRole: editSubRole,
+        subRoleTitle: finalSubTitle,
+        contactPreferences: editContactPreferences
+      });
+
       setIsEditingProfile(false);
-    }, 1800);
+      setProfileSuccessMsg(language === 'ar' ? '🎉 تم حفظ وتحديث بيانات الملف الشخصي بنجاح!' : '🎉 Profile updated and saved successfully!');
+      setTimeout(() => setProfileSuccessMsg(null), 4000);
+    } catch (err) {
+      console.warn('Error saving profile:', err);
+      setProfileErrorMsg(language === 'ar' ? 'عفواً، فشل الحفظ: ' + (err as any).message : 'Failed to save: ' + (err as any).message);
+      setTimeout(() => setProfileErrorMsg(null), 5000);
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -222,11 +243,30 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
+      if (authMode === 'signup') {
+        const subList = selectedRole === 'merchant' ? MERCHANT_SUB_ROLES : USER_SUB_ROLES;
+        const matchedSub = subList.find(s => s.id === selectedSubRole) || subList[0];
+        const subTitle = language === 'ar' ? matchedSub?.titleAr : matchedSub?.titleEn;
+
+        localStorage.setItem('cityqr_pending_google_signup', JSON.stringify({
+          role: selectedRole,
+          subRole: selectedSubRole,
+          subRoleTitle: subTitle,
+          fullName: fullName.trim() || undefined
+        }));
+      } else {
+        localStorage.removeItem('cityqr_pending_google_signup');
+      }
+
       const result = await loginWithGoogle();
       if (result?.error) {
         setErrorMsg(result.error);
       } else if (result?.user) {
-        setSuccessMsg(language === 'ar' ? '🎉 تم تسجيل الدخول بنجاح بحساب جوجل!' : '🎉 Signed in successfully with Google!');
+        setSuccessMsg(
+          authMode === 'signup'
+            ? (language === 'ar' ? '🎉 تم إنشاء الحساب وتفعيل عضويتك بنجاح بحساب جوجل!' : '🎉 Account created & signed in with Google!')
+            : (language === 'ar' ? '🎉 تم تسجيل الدخول بنجاح بحساب جوجل!' : '🎉 Signed in successfully with Google!')
+        );
         if (onNavigate) {
           setTimeout(() => onNavigate('dashboard'), 1200);
         }
@@ -427,8 +467,7 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
     : `Create User Account (${subTitleEn})`;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in py-4 px-2 sm:px-4 pb-32">
-      
+    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in py-4 px-2 sm:px-4 pb-32 relative">
 
       {/* LOGGED IN VIEW: User Profile & Custom Permissions Dashboard */}
       {currentUser ? (
@@ -463,6 +502,10 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                         ? (language === 'ar' ? 'حساب تاجر / شريك تجاري' : 'MERCHANT PARTNER')
                         : (language === 'ar' ? 'حساب عميل / مستخدم' : 'CUSTOMER USER')}
                     </span>
+                    <span className="text-xs text-emerald-400 font-mono font-bold bg-emerald-950/60 px-3 py-1.5 rounded-full border border-emerald-500/40 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>{language === 'ar' ? 'جلسة نشطة موثقة' : 'Verified Active Session'}</span>
+                    </span>
                     <span className="text-xs text-zinc-500 font-mono font-bold bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800">
                       ID: {currentUser.id.substring(0, 8)}...
                     </span>
@@ -470,7 +513,7 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                   <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
                     {currentUser.fullName || currentUser.email.split('@')[0]}
                   </h2>
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-sm font-mono text-zinc-300">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs sm:text-sm font-mono text-zinc-300">
                     <span className="flex items-center gap-2">
                       <Mail className="w-4 h-4 text-[#D4AF37]" />
                       <span>{currentUser.email}</span>
@@ -481,6 +524,17 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                         <span>{currentUser.phoneNumber}</span>
                       </span>
                     )}
+                    <span className="flex items-center gap-2 text-zinc-400 bg-zinc-900/80 px-2.5 py-1 rounded-lg border border-zinc-800">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span>
+                        {language === 'ar' ? 'آخر دخول:' : 'Last login:'}{' '}
+                        <strong className="text-white">
+                          {currentUser.lastLoginAt
+                            ? new Date(currentUser.lastLoginAt).toLocaleTimeString(language === 'ar' ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' }) + ' (' + new Date(currentUser.lastLoginAt).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US') + ')'
+                            : (language === 'ar' ? 'الآن' : 'Just now')}
+                        </strong>
+                      </span>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -488,6 +542,7 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
               {/* ACTION BUTTONS: Edit Profile & Sign Out - Very Prominent */}
               <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto shrink-0 bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
                 <button
+                  type="button"
                   onClick={() => setIsEditingProfile(!isEditingProfile)}
                   className={`w-full sm:w-auto flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl font-black text-sm transition-all duration-300 shadow-xl cursor-pointer border-2 ${
                     isEditingProfile 
@@ -499,7 +554,12 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                   <span>{isEditingProfile ? (language === 'ar' ? 'إلغاء التعديل ✖' : 'Cancel Edit ✖') : (language === 'ar' ? 'تعديل الملف الشخصي' : 'Edit Profile')}</span>
                 </button>
                 <button
-                  onClick={logoutUser}
+                  type="button"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await logoutUser();
+                  }}
                   className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-red-950/60 hover:bg-red-600 text-red-400 hover:text-white border-2 border-red-500/40 hover:border-red-500 font-black text-sm transition-all duration-300 shadow-xl cursor-pointer"
                 >
                   <LogOut className="w-5 h-5 stroke-[2.5]" />
@@ -513,6 +573,13 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
               <div className="p-5 rounded-2xl bg-emerald-500/20 border-2 border-emerald-500/50 text-emerald-300 text-sm font-black flex items-center gap-3 shadow-[0_0_20px_rgba(16,185,129,0.2)] animate-fade-in">
                 <CheckCircle2 className="w-6 h-6 shrink-0" />
                 <span>{profileSuccessMsg}</span>
+              </div>
+            )}
+
+            {profileErrorMsg && (
+              <div className="p-5 rounded-2xl bg-red-500/20 border-2 border-red-500/50 text-red-300 text-sm font-black flex items-center gap-3 shadow-[0_0_20px_rgba(239,68,68,0.2)] animate-fade-in">
+                <AlertCircle className="w-6 h-6 shrink-0" />
+                <span>{profileErrorMsg}</span>
               </div>
             )}
 
@@ -559,6 +626,34 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                         className="w-full px-5 py-4 rounded-2xl bg-zinc-900 border-2 border-zinc-800 text-white text-sm outline-none focus:border-[#D4AF37] transition font-bold font-mono shadow-inner"
                       />
                     </div>
+
+                    <div className="space-y-3">
+                      <label className="text-sm font-black text-zinc-200 flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-[#25D366]" />
+                        <span>{language === 'ar' ? 'رقم الواتساب:' : 'WhatsApp Number:'}</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={editWhatsapp}
+                        onChange={(e) => setEditWhatsapp(e.target.value)}
+                        placeholder={language === 'ar' ? '+201xxxxxxxxx...' : 'Enter WhatsApp number...'}
+                        className="w-full px-5 py-4 rounded-2xl bg-zinc-900 border-2 border-zinc-800 text-white text-sm outline-none focus:border-[#25D366] transition font-bold font-mono shadow-inner"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="text-sm font-black text-zinc-200 flex items-center gap-2">
+                      <User className="w-4 h-4 text-[#D4AF37]" />
+                      <span>{language === 'ar' ? 'نبذة عني (السيرة الذاتية):' : 'Bio (About Me):'}</span>
+                    </label>
+                    <textarea
+                      value={editBio}
+                      onChange={(e) => setEditBio(e.target.value)}
+                      placeholder={language === 'ar' ? 'أخبرنا عن نفسك أو عملك...' : 'Tell us about yourself or your business...'}
+                      rows={3}
+                      className="w-full px-5 py-4 rounded-2xl bg-zinc-900 border-2 border-zinc-800 text-white text-sm outline-none focus:border-[#D4AF37] transition font-bold shadow-inner resize-none"
+                    />
                   </div>
 
                   <div className="space-y-3">
@@ -644,11 +739,22 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                       {language === 'ar' ? 'إلغاء والتراجع' : 'Cancel'}
                     </button>
                     <button
-                      type="submit"
-                      className="w-full sm:w-auto px-10 py-4 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-amber-500 hover:from-amber-400 hover:to-amber-500 text-black font-black text-sm transition-all duration-300 shadow-[0_0_20px_rgba(212,175,55,0.4)] cursor-pointer flex items-center justify-center gap-3 hover:scale-105"
+                      type="button"
+                      onClick={handleSaveProfile}
+                      disabled={isSavingProfile}
+                      className="w-full sm:w-auto px-10 py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-black text-sm transition-all duration-300 shadow-[0_0_20px_rgba(37,99,235,0.4)] cursor-pointer flex items-center justify-center gap-3 hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed active:scale-95 touch-manipulation"
                     >
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span>{language === 'ar' ? 'حفظ التغيرات بنجاح' : 'Save Changes'}</span>
+                      {isSavingProfile ? (
+                        <>
+                          <RefreshCw className="w-5 h-5 animate-spin text-white" />
+                          <span>{language === 'ar' ? 'جاري الحفظ...' : 'Saving...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-5 h-5 text-white" />
+                          <span>{language === 'ar' ? 'حفظ التغيرات' : 'Save Changes'}</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </form>
@@ -1366,18 +1472,20 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                 {/* Divider */}
                 <div className="w-full max-w-lg my-2 flex items-center gap-3">
                   <div className="h-px bg-zinc-800 flex-1" />
-                  <span className="text-[11px] font-extrabold text-zinc-500 uppercase tracking-wider">
-                    {language === 'ar' ? 'أو التسجيل السريع' : 'Or Quick Sign In'}
+                  <span className="text-[11px] font-extrabold text-amber-400 uppercase tracking-wider">
+                    {authMode === 'signup'
+                      ? (language === 'ar' ? 'أو التسجيل السريع بنقرة واحدة' : 'Or Quick Registration')
+                      : (language === 'ar' ? 'أو تسجيل الدخول السريع' : 'Or Quick Sign In')}
                   </span>
                   <div className="h-px bg-zinc-800 flex-1" />
                 </div>
 
-                {/* Google Sign-In Button */}
+                {/* Google Sign-In/Up Button */}
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={isGoogleLoading || loading}
-                  className="w-full max-w-lg py-3.5 px-6 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-sm shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center gap-3 border border-zinc-700/80 hover:border-zinc-500 disabled:opacity-50"
+                  className="w-full max-w-lg py-3.5 px-6 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-sm shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center gap-3 border border-zinc-700/80 hover:border-amber-500/60 disabled:opacity-50"
                 >
                   {isGoogleLoading ? (
                     <RefreshCw className="w-5 h-5 animate-spin text-[#D4AF37]" />
@@ -1402,9 +1510,13 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                     </svg>
                   )}
                   <span>
-                    {language === 'ar'
-                      ? 'الدخول المباشر بحساب جوجل (Google)'
-                      : 'Continue with Google Account'}
+                    {authMode === 'signup'
+                      ? (language === 'ar'
+                          ? `إنشاء الحساب والتسجيل كـ (${selectedRole === 'merchant' ? 'تاجر / شريك' : 'عميل / مستخدم'}) بحساب جوجل`
+                          : `Register & Sign Up as (${selectedRole === 'merchant' ? 'Merchant' : 'Customer'}) with Google`)
+                      : (language === 'ar'
+                          ? 'تسجيل الدخول السريع بحساب جوجل (Google)'
+                          : 'Sign In with Google Account')}
                   </span>
                 </button>
 

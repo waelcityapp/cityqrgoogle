@@ -559,34 +559,72 @@ function CityQRAppContent() {
               <div className="absolute -bottom-2 left-4 w-48 h-8 bg-gradient-to-t from-amber-400/35 via-[#D4AF37]/30 to-transparent rounded-full blur-xl pointer-events-none animate-pulse" />
             </div>
 
-            {/* 4 Header Action Buttons (Icon-Only Toolbar for maximum logo space) */}
+            {/* 4 Header Action Buttons + Profile Badge */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 py-0.5">
+              
+              {/* Logged-In User Badge in Header (Always visible) */}
+              {currentUser ? (
+                <button
+                  onClick={() => setActiveTab('account')}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37]/20 via-amber-500/10 to-[#8B0000]/20 hover:border-[#D4AF37] transition cursor-pointer shadow-md shrink-0"
+                  title={language === 'ar' ? 'عرض الملف الشخصي والتعديل عليه' : 'View & Edit Profile'}
+                >
+                  <div className="relative">
+                    <img
+                      src={currentUser.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser.email || currentUser.fullName || 'user')}`}
+                      alt={currentUser.fullName || 'User Avatar'}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-[#D4AF37] object-cover bg-amber-500/10 shadow-sm"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-black" />
+                  </div>
+                  <div className="text-right flex flex-col items-start leading-none gap-0.5">
+                    <span className="text-xs font-black text-black dark:text-white max-w-[90px] sm:max-w-[130px] truncate">
+                      {currentUser.fullName || currentUser.email.split('@')[0]}
+                    </span>
+                    <span className="text-[9px] font-extrabold text-[#D4AF37] font-mono">
+                      {currentUser.role === 'merchant' || currentUser.role === 'admin'
+                        ? (language === 'ar' ? 'تاجر / شريك' : 'Merchant')
+                        : (currentUser.subRoleTitle || (language === 'ar' ? 'عضو مميز' : 'Member'))}
+                    </span>
+                  </div>
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setAuthInitialMode('signin'); setActiveTab('account'); }}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-[#D4AF37]/60 bg-[#D4AF37]/15 hover:bg-[#D4AF37]/25 text-[#D4AF37] text-xs font-bold transition cursor-pointer shrink-0"
+                >
+                  <User className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>{language === 'ar' ? 'دخول' : 'Sign In'}</span>
+                </button>
+              )}
+
               {/* 1. Share App */}
               <button
                 onClick={() => setIsShareModalOpen(true)}
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 hover:bg-[#D4AF37]/15 dark:hover:bg-[#D4AF37]/25 text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer shadow-sm shrink-0 flex items-center justify-center group"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 hover:bg-[#D4AF37]/15 dark:hover:bg-[#D4AF37]/25 text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer shadow-sm shrink-0 flex items-center justify-center group"
                 title={language === 'ar' ? 'مشاركة التطبيق عبر وسائل التواصل الاجتماعي' : 'Share app via social media'}
               >
-                <Share2 className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
+                <Share2 className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
               </button>
 
               {/* 2. Contact App */}
               <button
                 onClick={handleOpenAdminMessage}
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37]/20 via-amber-500/20 to-[#D4AF37]/20 hover:from-[#D4AF37]/30 hover:to-amber-500/30 text-amber-300 dark:text-amber-300 transition duration-300 cursor-pointer shadow-[0_0_15px_rgba(212,175,55,0.25)] shrink-0 flex items-center justify-center animate-pulse group"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37]/20 via-amber-500/20 to-[#D4AF37]/20 hover:from-[#D4AF37]/30 hover:to-amber-500/30 text-amber-300 dark:text-amber-300 transition duration-300 cursor-pointer shadow-[0_0_15px_rgba(212,175,55,0.25)] shrink-0 flex items-center justify-center animate-pulse group"
                 title={language === 'ar' ? 'مراسلة التطبيق (استفسار / مقترح / شكوى)' : 'Contact App (Inquiry / Suggestion / Complaint)'}
               >
-                <Mail className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
+                <Mail className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
               </button>
 
               {/* 3. Notifications Bell */}
               <div className="relative">
                 <button
                   onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-[#8B0000]/40 bg-[#8B0000]/10 hover:bg-[#8B0000]/20 text-[#8B0000] dark:text-red-400 transition duration-200 cursor-pointer shadow-sm shrink-0 relative flex items-center justify-center group"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-[#8B0000]/40 bg-[#8B0000]/10 hover:bg-[#8B0000]/20 text-[#8B0000] dark:text-red-400 transition duration-200 cursor-pointer shadow-sm shrink-0 relative flex items-center justify-center group"
                   title={language === 'ar' ? 'الإشعارات والتنبيهات' : 'Notifications'}
                 >
-                  <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#8B0000] dark:text-red-400 animate-bounce" />
+                  <Bell className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-[#8B0000] dark:text-red-400 animate-bounce" />
                   <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 shadow">{mockNotifications.length}</span>
                 </button>
               </div>
@@ -595,10 +633,10 @@ function CityQRAppContent() {
               <div className="relative">
                 <button
                   onClick={() => setIsQuickMenuOpen(!isQuickMenuOpen)}
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-amber-500/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] transition duration-200 cursor-pointer shadow-sm shrink-0 flex items-center justify-center group"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-amber-500/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] transition duration-200 cursor-pointer shadow-sm shrink-0 flex items-center justify-center group"
                   title={language === 'ar' ? 'القائمة السريعة: الدولة والعملة والواجهة' : 'Quick Menu: Country, Currency & Interface'}
                 >
-                  <Menu className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
+                  <Menu className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
                 </button>
               </div>
             </div>

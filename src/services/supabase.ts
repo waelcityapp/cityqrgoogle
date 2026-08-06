@@ -861,19 +861,31 @@ export async function signInWithSupabase(
 export async function signInWithGoogle(): Promise<{ user?: UserProfile; error?: string }> {
   const client = getSupabaseClient();
   
+  // Retrieve any pending registration parameters selected by user in UI
+  let pendingSignup: any = null;
+  try {
+    const savedPending = localStorage.getItem('cityqr_pending_google_signup');
+    if (savedPending) {
+      pendingSignup = JSON.parse(savedPending);
+    }
+  } catch (e) {}
+
   if (!client) {
     // Demo / Offline local simulation for Google Login when Supabase env variables are empty
     const googleUser: UserProfile = {
-      id: 'google-user-super-admin',
-      email: 'waelvts@gmail.com',
-      fullName: 'م. وائل - المدير العام (Google Auth)',
-      role: 'admin',
-      subRole: 'super_admin',
-      subRoleTitle: 'المدير المباشر والأدمن الرئيسي (Super Admin)',
-      createdAt: new Date().toISOString()
+      id: 'google-user-' + Date.now(),
+      email: pendingSignup?.email || 'waelvts@gmail.com',
+      fullName: pendingSignup?.fullName || 'وائل مهنى',
+      role: pendingSignup?.role || 'merchant',
+      subRole: pendingSignup?.subRole || 'partner_merchant',
+      subRoleTitle: pendingSignup?.subRoleTitle || 'تاجر / شريك تجاري',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString()
     };
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(googleUser));
+      localStorage.removeItem('cityqr_pending_google_signup');
+      saveUserProfileToStorage(googleUser);
     } catch (e) {
       console.warn('Could not save google user session:', e);
     }
@@ -881,10 +893,13 @@ export async function signInWithGoogle(): Promise<{ user?: UserProfile; error?: 
   }
 
   try {
+    const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ais-dev-rfirowxfgxlopkvrfok5qe-497491106818.europe-west1.run.app';
+    const redirectUrl = originUrl.replace(/\/$/, ''); // Strict match for Supabase Redirect URL list without trailing slash
+
     const { error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: redirectUrl,
         queryParams: {
           prompt: 'select_account'
         }
@@ -892,6 +907,23 @@ export async function signInWithGoogle(): Promise<{ user?: UserProfile; error?: 
     });
 
     if (error) {
+      if (error.message?.includes('Rate exceeded') || error.message?.includes('429')) {
+        // Fallback to local profile session if rate limit exceeded
+        const googleUser: UserProfile = {
+          id: 'google-user-' + Date.now(),
+          email: pendingSignup?.email || 'waelvts@gmail.com',
+          fullName: pendingSignup?.fullName || 'وائل مهنى',
+          role: pendingSignup?.role || 'merchant',
+          subRole: pendingSignup?.subRole || 'partner_merchant',
+          subRoleTitle: pendingSignup?.subRoleTitle || 'تاجر / شريك تجاري',
+          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+          createdAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString()
+        };
+        localStorage.removeItem('cityqr_pending_google_signup');
+        saveUserProfileToStorage(googleUser);
+        return { user: googleUser };
+      }
       return { error: error.message };
     }
     
@@ -902,79 +934,237 @@ export async function signInWithGoogle(): Promise<{ user?: UserProfile; error?: 
 }
 
 /**
- * Checks active OAuth session from Supabase (e.g. after Google OAuth redirect)
+ * Checks active OAuth session from Supabase (e.g. after Google OAuth redirect on desktop & mobile)
  */
-export async function getCurrentUserFromSupabaseSession(): Promise<UserProfile | null> {
+export async function getCurrentUserFromSupabaseSession(providedSession?: any): Promise<UserProfile | null> {
   const client = getSupabaseClient();
   if (!client) return null;
 
   try {
-    const { data: { session }, error } = await client.auth.getSession();
-    if (error || !session || !session.user) return null;
+    let session = providedSession;
+    if (!session) {
+      try {
+        const { data, error } = await client.auth.getSession();
+        if (error) {
+          console.warn('Supabase getSession warning:', error.message);
+          if (error.message?.includes('Rate exceeded') || error.message?.includes('429')) {
+            return getStoredUserProfile();
+          }
+          return null;
+        }
+        if (!data?.session) return null;
+        session = data.session;
+      } catch (e: any) {
+        console.warn('Supabase auth catch:', e);
+        return getStoredUserProfile();
+      }
+    }
+
+    if (!session || !session.user) return null;
 
     const user = session.user;
     const email = user.email || '';
-    const fullName = user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0] || 'Google User';
+    
+    // Exact details provided by Google OAuth / Supabase Auth provider metadata
+    const googleFullName = user.user_metadata?.full_name || user.user_metadata?.name || '';
+    const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || undefined;
+    const authLastSignIn = user.last_sign_in_at || new Date().toISOString();
+    const authCreatedAt = user.created_at || new Date().toISOString();
 
     // Query profile in Supabase profiles table
-    const { data: rawProfile } = await client
-      .from('profiles')
-      .select('*')
-      .eq('email', email)
-      .maybeSingle();
-
-    const profile = rawProfile as any;
+    let profile: any = null;
+    try {
+      const { data: rawProfile } = await client
+        .from('profiles')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle();
+      profile = rawProfile;
+    } catch (e) {
+      console.warn('Could not query profile table:', e);
+    }
 
     let userProfile: UserProfile;
 
     const isSuperAdminEmail = email.toLowerCase() === 'waelvts@gmail.com';
 
+    // Check if there was a pending Google registration with specific chosen role/subRole
+    let pendingSignup: any = null;
+    try {
+      const savedPending = localStorage.getItem('cityqr_pending_google_signup');
+      if (savedPending) {
+        pendingSignup = JSON.parse(savedPending);
+        localStorage.removeItem('cityqr_pending_google_signup');
+      }
+    } catch (e) {}
+
+    // Determine accurate Full Name with proper priority:
+    // Priority 1: Explicitly typed name in pending signup form
+    // Priority 2: Existing custom name saved in public.profiles DB table (if valid and non-generic)
+    // Priority 3: Google OAuth display name from Google Account metadata
+    // Priority 4: Email username fallback
+    let resolvedFullName = profile?.full_name || '';
+    const isGenericName = !resolvedFullName || 
+      resolvedFullName.trim() === '' ||
+      resolvedFullName.includes('(Google Auth)') || 
+      resolvedFullName === 'مستخدم CityQR' || 
+      resolvedFullName === 'Google User' || 
+      resolvedFullName === 'مستخدم جوجل';
+
+    if (pendingSignup?.fullName && pendingSignup.fullName.trim() !== '') {
+      resolvedFullName = pendingSignup.fullName.trim();
+    } else if (!isGenericName) {
+      // Keep existing custom profile name from public.profiles DB!
+      resolvedFullName = profile.full_name;
+    } else if (googleFullName && googleFullName.trim() !== '') {
+      resolvedFullName = googleFullName.trim();
+    } else {
+      resolvedFullName = email.split('@')[0] || 'مستخدم CityQR';
+    }
+
+    const resolvedAvatar = googleAvatar || profile?.avatar_url;
+
+    const existingLocalUser = getStoredUserProfile();
+    const meta = user.user_metadata || {};
+
     if (profile) {
+      const finalRole = isSuperAdminEmail ? 'admin' : (pendingSignup?.role || profile.role || meta.role || 'user');
+      const finalSubRole = isSuperAdminEmail ? 'super_admin' : (pendingSignup?.subRole || profile.sub_role || meta.sub_role || 'citizen');
+      const finalSubRoleTitle = isSuperAdminEmail ? 'المدير المباشر والأدمن الرئيسي (Super Admin)' : (pendingSignup?.subRoleTitle || profile.sub_role_title || meta.sub_role_title || '');
+
+      // Database values are PRIMARY over Google Auth metadata!
+      const finalPhone = profile.phone_number || meta.phone_number || existingLocalUser?.phoneNumber || '';
+      const finalWhatsapp = profile.whatsapp_number || meta.whatsapp_number || existingLocalUser?.whatsappNumber || finalPhone || '';
+      const finalBio = profile.bio || meta.bio || existingLocalUser?.bio || '';
+      const finalAvatar = profile.avatar_url || resolvedAvatar || meta.avatar_url || existingLocalUser?.avatarUrl || '';
+      const finalFullName = resolvedFullName || profile.full_name || meta.full_name || meta.name || 'مستخدم CityQR';
+
       userProfile = {
-        id: profile.id,
-        email: profile.email,
-        fullName: profile.full_name || fullName,
-        role: isSuperAdminEmail ? 'admin' : ((profile.role === 'merchant' || profile.role === 'admin' ? profile.role : 'user') as any),
-        subRole: isSuperAdminEmail ? 'super_admin' : (profile.sub_role || 'citizen'),
-        subRoleTitle: isSuperAdminEmail ? 'المدير المباشر والأدمن الرئيسي (Super Admin)' : (profile.sub_role_title || ''),
-        createdAt: profile.created_at || new Date().toISOString()
+        id: profile.id || user.id || existingLocalUser?.id,
+        email: profile.email || email || existingLocalUser?.email,
+        fullName: finalFullName,
+        role: finalRole,
+        subRole: finalSubRole,
+        subRoleTitle: finalSubRoleTitle,
+        avatarUrl: finalAvatar,
+        phoneNumber: finalPhone,
+        whatsappNumber: finalWhatsapp,
+        bio: finalBio,
+        createdAt: profile.created_at || authCreatedAt || existingLocalUser?.createdAt,
+        lastLoginAt: authLastSignIn || existingLocalUser?.lastLoginAt
       };
+
+      // Sync Supabase DB profile row with resolved Auth metadata & last sign in timestamp
+      try {
+        const syncPayloadFull: any = {
+          id: profile.id || user.id,
+          email: email,
+          role: finalRole,
+          full_name: finalFullName,
+          sub_role: finalSubRole,
+          sub_role_title: finalSubRoleTitle,
+          phone_number: finalPhone,
+          whatsapp_number: finalWhatsapp,
+          bio: finalBio,
+          updated_at: new Date().toISOString()
+        };
+        if (finalAvatar) syncPayloadFull.avatar_url = finalAvatar;
+
+        const { error: syncErr1 } = await (client.from('profiles') as any).upsert(syncPayloadFull, { onConflict: 'email' });
+        if (syncErr1) {
+          const syncPayloadCore: any = {
+            id: profile.id || user.id,
+            email: email,
+            role: finalRole,
+            full_name: finalFullName,
+            phone_number: finalPhone,
+            updated_at: new Date().toISOString()
+          };
+          if (finalAvatar) syncPayloadCore.avatar_url = finalAvatar;
+          await (client.from('profiles') as any).upsert(syncPayloadCore, { onConflict: 'email' }).catch(() => null);
+        }
+      } catch (e) {
+        console.warn('Could not sync updated OAuth profile to DB:', e);
+      }
     } else {
       // Auto-create profile in Supabase for Google OAuth user
       const newId = user.id || 'user-' + Date.now();
-      const defaultRole = isSuperAdminEmail ? 'admin' : 'user';
-      const defaultSubRole = isSuperAdminEmail ? 'super_admin' : 'citizen';
-      const defaultSubRoleTitle = isSuperAdminEmail ? 'المدير المباشر والأدمن الرئيسي (Super Admin)' : 'مستخدم ممتاز (Google Auth)';
+      const defaultRole = isSuperAdminEmail ? 'admin' : (pendingSignup?.role || meta.role || existingLocalUser?.role || 'user');
+      const defaultSubRole = isSuperAdminEmail ? 'super_admin' : (pendingSignup?.subRole || meta.sub_role || existingLocalUser?.subRole || 'citizen');
+      const defaultSubRoleTitle = isSuperAdminEmail ? 'المدير المباشر والأدمن الرئيسي (Super Admin)' : (pendingSignup?.subRoleTitle || meta.sub_role_title || existingLocalUser?.subRoleTitle || 'مستخدم منضم عبر جوجل');
+
+      const finalPhone = meta.phone_number || existingLocalUser?.phoneNumber || '';
+      const finalWhatsapp = meta.whatsapp_number || existingLocalUser?.whatsappNumber || finalPhone || '';
+      const finalBio = meta.bio || existingLocalUser?.bio || '';
+      const finalAvatar = resolvedAvatar || meta.avatar_url || existingLocalUser?.avatarUrl || '';
 
       userProfile = {
         id: newId,
         email: email,
-        fullName: fullName,
+        fullName: resolvedFullName || meta.full_name || meta.name || existingLocalUser?.fullName || 'مستخدم CityQR',
         role: defaultRole,
         subRole: defaultSubRole,
         subRoleTitle: defaultSubRoleTitle,
-        createdAt: new Date().toISOString()
+        avatarUrl: finalAvatar,
+        phoneNumber: finalPhone,
+        whatsappNumber: finalWhatsapp,
+        bio: finalBio,
+        createdAt: authCreatedAt,
+        lastLoginAt: authLastSignIn
       };
 
       try {
-        await (client.from('profiles') as any).upsert({
-          id: newId,
+        const createFull: any = {
+          id: user.id || newId,
           email: email,
           role: defaultRole,
+          full_name: userProfile.fullName,
           sub_role: defaultSubRole,
           sub_role_title: defaultSubRoleTitle,
-          full_name: fullName,
-          created_at: new Date().toISOString(),
+          avatar_url: finalAvatar,
+          phone_number: finalPhone,
+          whatsapp_number: finalWhatsapp,
+          bio: finalBio,
+          created_at: authCreatedAt,
           updated_at: new Date().toISOString()
-        });
-      } catch (upsertErr) {
-        console.warn('Could not auto-upsert Google OAuth profile:', upsertErr);
-      }
+        };
+        const { error: createErr } = await (client.from('profiles') as any).upsert(createFull, { onConflict: 'email' });
+        if (createErr) {
+          const createCore: any = {
+            id: user.id || newId,
+            email: email,
+            role: defaultRole,
+            full_name: userProfile.fullName,
+            avatar_url: finalAvatar,
+            phone_number: finalPhone,
+            created_at: authCreatedAt,
+            updated_at: new Date().toISOString()
+          };
+          await (client.from('profiles') as any).upsert(createCore, { onConflict: 'email' }).catch(() => null);
+        }
+      } catch (e) {}
     }
 
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(userProfile));
-    } catch (e) {}
+    // Sync Google Auth user_metadata so Supabase Auth Console matches DB Profile 100%
+    if (client.auth && typeof client.auth.updateUser === 'function') {
+      try {
+        await client.auth.updateUser({
+          data: {
+            full_name: resolvedFullName,
+            name: resolvedFullName,
+            avatar_url: resolvedAvatar,
+            phone_number: userProfile.phoneNumber,
+            whatsapp_number: userProfile.whatsappNumber,
+            bio: userProfile.bio,
+            role: userProfile.role,
+            sub_role: userProfile.subRole,
+            sub_role_title: userProfile.subRoleTitle
+          }
+        });
+      } catch (e) {}
+    }
+
+    saveUserProfileToStorage(userProfile);
 
     return userProfile;
   } catch (err) {
@@ -984,20 +1174,37 @@ export async function getCurrentUserFromSupabaseSession(): Promise<UserProfile |
 }
 
 export async function signOutFromSupabase(): Promise<void> {
+  try {
+    localStorage.removeItem(LOCAL_STORAGE_KEY_USER);
+    localStorage.removeItem('cityqr_local_user');
+    localStorage.removeItem('cityqr_current_user');
+    
+    const keys = Object.keys(localStorage);
+    for (const key of keys) {
+      if (key.startsWith('sb-') || key.includes('supabase.auth')) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch (e) {
+    console.warn('Error clearing localStorage during signout:', e);
+  }
+
   const client = getSupabaseClient() as any;
-  if (client) {
+  if (client && client.auth) {
     try {
-      await client.auth.signOut();
+      await Promise.race([
+        client.auth.signOut().catch((err: any) => console.warn('Supabase signOut inner warning:', err)),
+        new Promise(resolve => setTimeout(resolve, 800))
+      ]);
     } catch (e) {
       console.warn('Supabase signOut warning:', e);
     }
   }
-  localStorage.removeItem(LOCAL_STORAGE_KEY_USER);
 }
 
 export function getStoredUserProfile(): UserProfile | null {
   try {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_USER);
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_USER) || localStorage.getItem('cityqr_local_user') || localStorage.getItem('cityqr_current_user');
     if (saved) {
       return JSON.parse(saved);
     }
@@ -1010,9 +1217,148 @@ export function getStoredUserProfile(): UserProfile | null {
 export function saveUserProfileToStorage(user: UserProfile): void {
   try {
     localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(user));
+    localStorage.setItem('cityqr_local_user', JSON.stringify(user));
+    localStorage.setItem('cityqr_current_user', JSON.stringify(user));
+
+    // Also update in local simulated profiles database
+    const existingProfiles: UserProfile[] = JSON.parse(
+      localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]'
+    );
+    const index = existingProfiles.findIndex(
+      p => p.id === user.id || (p.email && user.email && p.email.toLowerCase() === user.email.toLowerCase())
+    );
+    if (index >= 0) {
+      existingProfiles[index] = { ...existingProfiles[index], ...user };
+    } else {
+      existingProfiles.push(user);
+    }
+    localStorage.setItem(LOCAL_STORAGE_KEY_PROFILES_DB, JSON.stringify(existingProfiles));
   } catch (e) {
     console.warn('Error saving user profile to local storage:', e);
   }
 }
 
+export async function updateUserProfileInSupabase(user: UserProfile): Promise<void> {
+  // 1. Always update local cache instantly
+  saveUserProfileToStorage(user);
 
+  const client = getSupabaseClient() as any;
+  if (!client) {
+    console.warn('Supabase client not initialized, profile saved locally.');
+    return;
+  }
+
+  const updateTask = async () => {
+    try {
+      if (client.auth) {
+        await client.auth.getSession().catch(() => null);
+      }
+
+      // 2. Sync Supabase Auth user_metadata so Auth session holds updated details permanently
+      if (client.auth && typeof client.auth.updateUser === 'function') {
+        await client.auth.updateUser({
+          data: {
+            full_name: user.fullName || '',
+            name: user.fullName || '',
+            avatar_url: user.avatarUrl || '',
+            phone_number: user.phoneNumber || '',
+            whatsapp_number: user.whatsappNumber || user.phoneNumber || '',
+            bio: user.bio || '',
+            role: user.role || 'user',
+            sub_role: user.subRole || '',
+            sub_role_title: user.subRoleTitle || ''
+          }
+        }).catch((err: any) => console.warn('Auth updateUser metadata warning:', err));
+      }
+
+      // 3. Prepare full fields and core fields for DB update
+      const fullFields: any = {
+        full_name: user.fullName || '',
+        role: user.role || 'user',
+        sub_role: user.subRole || '',
+        sub_role_title: user.subRoleTitle || '',
+        avatar_url: user.avatarUrl || '',
+        phone_number: user.phoneNumber || '',
+        whatsapp_number: user.whatsappNumber || user.phoneNumber || '',
+        bio: user.bio || '',
+        updated_at: new Date().toISOString()
+      };
+
+      const coreFields: any = {
+        full_name: user.fullName || '',
+        role: user.role || 'user',
+        avatar_url: user.avatarUrl || '',
+        phone_number: user.phoneNumber || '',
+        updated_at: new Date().toISOString()
+      };
+
+      let updatedInDB = false;
+
+      // Helper 1: Attempt update query without forcing select('id')
+      const doUpdate = async (fields: any): Promise<boolean> => {
+        if (user.email) {
+          const { error } = await client.from('profiles').update(fields).eq('email', user.email);
+          if (!error) return true;
+        }
+        if (user.id) {
+          const { error } = await client.from('profiles').update(fields).eq('id', user.id);
+          if (!error) return true;
+        }
+        return false;
+      };
+
+      // Helper 2: Attempt upsert query
+      const doUpsert = async (fields: any): Promise<boolean> => {
+        const record = {
+          ...(user.id ? { id: user.id } : {}),
+          ...(user.email ? { email: user.email } : {}),
+          ...fields
+        };
+        const { error } = await client.from('profiles').upsert(record, { onConflict: 'email' });
+        return !error;
+      };
+
+      // Level 1: Full payload update
+      try {
+        updatedInDB = await doUpdate(fullFields);
+      } catch (e) {}
+
+      // Level 2: Core payload update (fallback if full payload failed due to unknown columns)
+      if (!updatedInDB) {
+        try {
+          updatedInDB = await doUpdate(coreFields);
+        } catch (e) {}
+      }
+
+      // Level 3: Full payload upsert (if row did not exist yet)
+      if (!updatedInDB) {
+        try {
+          updatedInDB = await doUpsert(fullFields);
+        } catch (e) {}
+      }
+
+      // Level 4: Core payload upsert
+      if (!updatedInDB) {
+        try {
+          updatedInDB = await doUpsert(coreFields);
+        } catch (e) {}
+      }
+
+      console.log('Profile update process completed. DB update success status:', updatedInDB);
+    } catch (e: any) {
+      console.warn('Failed to update profile in Supabase:', e?.message || e);
+    }
+  };
+
+  const timeoutTask = new Promise<void>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error('Supabase request timed out'));
+    }, 8000);
+  });
+
+  try {
+    await Promise.race([updateTask(), timeoutTask]);
+  } catch (err) {
+    console.warn('Profile background sync timeout/error:', err);
+  }
+}

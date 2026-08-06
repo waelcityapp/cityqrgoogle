@@ -36,6 +36,7 @@ export interface UserProfile {
   whatsappNumber?: string; // WhatsApp number
   bio?: string; // Brief bio / description
   createdAt: string;
+  lastLoginAt?: string;
   affiliateCode?: string; // Unique marketing referral code
   walletBalance?: number; // Digital wallet balance in EGP/USD
   monthlyPlanPrice?: number; // Monthly subscription fee
