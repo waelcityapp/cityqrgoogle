@@ -310,13 +310,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateUserProfile = async (updates: Partial<UserProfile>) => {
     const baseUser = currentUser || getStoredUserProfile();
     if (baseUser) {
-      const updated: UserProfile = { ...baseUser, ...updates };
-      setCurrentUser(updated);
-      saveUserProfileToStorage(updated);
+      const pendingUpdate: UserProfile = { ...baseUser, ...updates };
       try {
-        await updateUserProfileInSupabase(updated);
+        const finalUser = await updateUserProfileInSupabase(pendingUpdate);
+        setCurrentUser(finalUser);
+        saveUserProfileToStorage(finalUser);
       } catch (err) {
-        console.warn('Background Supabase update warning:', err);
+        console.warn('Supabase update failed, not saving locally:', err);
         throw err;
       }
     }

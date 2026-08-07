@@ -1242,17 +1242,15 @@ export function saveUserProfileToStorage(user: UserProfile): void {
   }
 }
 
-export async function updateUserProfileInSupabase(user: UserProfile): Promise<void> {
-  // 1. Always update local cache instantly
-  saveUserProfileToStorage(user);
-
+export async function updateUserProfileInSupabase(user: UserProfile): Promise<UserProfile> {
   const client = getSupabaseClient() as any;
   if (!client) {
     console.warn('Supabase client not initialized, profile saved locally.');
-    return;
+    saveUserProfileToStorage(user);
+    return user;
   }
 
-  const updateTask = async () => {
+  const updateTask = async (): Promise<UserProfile> => {
     let lastError: any = null;
     try {
       if (client.auth) {
@@ -1298,18 +1296,25 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
       };
 
       let updatedInDB = false;
+      let finalUserData = null;
 
-      // Helper 1: Attempt update query forcing select('id') to confirm rows were actually modified
+      // Helper 1: Attempt update query forcing select() to confirm rows were actually modified
       const doUpdate = async (fields: any): Promise<boolean> => {
         if (user.email) {
-          const { data, error } = await client.from('profiles').update(fields).eq('email', user.email).select('id');
+          const { data, error } = await client.from('profiles').update(fields).eq('email', user.email).select('*');
           if (error) lastError = error;
-          if (!error && data && data.length > 0) return true;
+          if (!error && data && data.length > 0) {
+            finalUserData = data[0];
+            return true;
+          }
         }
         if (user.id) {
-          const { data, error } = await client.from('profiles').update(fields).eq('id', user.id).select('id');
+          const { data, error } = await client.from('profiles').update(fields).eq('id', user.id).select('*');
           if (error) lastError = error;
-          if (!error && data && data.length > 0) return true;
+          if (!error && data && data.length > 0) {
+            finalUserData = data[0];
+            return true;
+          }
         }
         return false;
       };
@@ -1321,10 +1326,13 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
           ...(user.email ? { email: user.email } : {}),
           ...fields
         };
-        const { error } = await client.from('profiles').upsert(record, { onConflict: 'id' });
+        const { data, error } = await client.from('profiles').upsert(record, { onConflict: 'id' }).select('*');
         if (error) {
            lastError = error;
            return false;
+        }
+        if (data && data.length > 0) {
+           finalUserData = data[0];
         }
         return true;
       };
@@ -1360,6 +1368,18 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
       if (!updatedInDB) {
         throw new Error(lastError?.message || 'Update failed: No rows matched or permission denied.');
       }
+      
+      return finalUserData ? {
+        ...user, // Keep existing fields if some are not in DB
+        fullName: finalUserData.full_name || user.fullName,
+        avatarUrl: finalUserData.avatar_url || user.avatarUrl,
+        phoneNumber: finalUserData.phone_number || user.phoneNumber,
+        whatsappNumber: finalUserData.whatsapp_number || user.whatsappNumber,
+        bio: finalUserData.bio || user.bio,
+        role: finalUserData.role || user.role,
+        subRole: finalUserData.sub_role || user.subRole,
+        subRoleTitle: finalUserData.sub_role_title || user.subRoleTitle
+      } : user;
     } catch (e: any) {
       console.warn('Failed to update profile in Supabase:', e?.message || e);
       if (e?.message?.includes('Failed to fetch')) {
@@ -1369,14 +1389,14 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
     }
   };
 
-  const timeoutTask = new Promise<void>((_, reject) => {
+  const timeoutTask = new Promise<UserProfile>((_, reject) => {
     setTimeout(() => {
-      reject(new Error('الشبكة ضعيفة أو تعذر الوصول لقاعدة البيانات. إذا كنت تستخدم رابط Supabase محلي (localhost)، فلن يعمل على الهاتف. تأكد من استخدام الرابط السحابي الصحيح.'));
+      reject(new Error('الشبكة ضعيفة أو تعذر الوصول لقاعدة البيانات. تأكد من إعدادات Vercel ووجود اتصال سحابي صحيح، ولا تعتمد على localhost.'));
     }, 20000);
   });
 
   try {
-    await Promise.race([updateTask(), timeoutTask]);
+    return await Promise.race([updateTask(), timeoutTask]);
   } catch (err) {
     console.warn('Profile background sync timeout/error:', err);
     throw err;
