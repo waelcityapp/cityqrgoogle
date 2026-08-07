@@ -1253,6 +1253,7 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
   }
 
   const updateTask = async () => {
+    let lastError: any = null;
     try {
       if (client.auth) {
         await client.auth.getSession().catch(() => null);
