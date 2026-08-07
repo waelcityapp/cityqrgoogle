@@ -595,7 +595,7 @@ export async function submitQRRatingInDB(qrId: string, userId: string, rating: n
 }
 
 // Authentication & Profiles Database Management
-const LOCAL_STORAGE_KEY_USER = 'cityqr_current_user';
+export const LOCAL_STORAGE_KEY_USER = 'cityqr_current_user';
 const LOCAL_STORAGE_KEY_PROFILES_DB = 'cityqr_profiles_db';
 
 export async function signUpWithSupabase(
@@ -1371,7 +1371,7 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
 
   const timeoutTask = new Promise<void>((_, reject) => {
     setTimeout(() => {
-      reject(new Error('الشبكة ضعيفة، انتهى وقت محاولة الحفظ. الرجاء المحاولة مرة أخرى.'));
+      reject(new Error('الشبكة ضعيفة أو تعذر الوصول لقاعدة البيانات. إذا كنت تستخدم رابط Supabase محلي (localhost)، فلن يعمل على الهاتف. تأكد من استخدام الرابط السحابي الصحيح.'));
     }, 20000);
   });
 

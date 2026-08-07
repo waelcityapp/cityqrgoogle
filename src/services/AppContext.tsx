@@ -19,7 +19,8 @@ import {
   signOutFromSupabase,
   getStoredUserProfile,
   saveUserProfileToStorage,
-  updateUserProfileInSupabase
+  updateUserProfileInSupabase,
+  LOCAL_STORAGE_KEY_USER
 } from './supabase';
 import { CountryProfile, detectUserCountry, WORLD_COUNTRIES } from './international';
 
