@@ -20,7 +20,8 @@ import {
   getStoredUserProfile,
   saveUserProfileToStorage,
   updateUserProfileInSupabase,
-  LOCAL_STORAGE_KEY_USER
+  LOCAL_STORAGE_KEY_USER,
+  LOCAL_STORAGE_KEY_PROFILES_DB
 } from './supabase';
 import { CountryProfile, detectUserCountry, WORLD_COUNTRIES } from './international';
 
@@ -54,7 +55,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const appVersion = '1.0.0'; // Built-in client version
+  const appVersion = '1.0.1'; // Built-in client version (updated to bust cache)
 
   // 1. Language State
   const [language, setLanguageState] = useState<Language>(() => {
@@ -187,6 +188,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 5. User Authentication State & Supabase Integration
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => getStoredUserProfile());
 
+  // Flag to prevent onAuthStateChange from overwriting profile during/after login
+  // When loginUser runs, it sets this to true. syncSessionUser checks it and skips
+  // if a login is in progress, preventing race conditions on mobile.
+  const loginInProgressRef = React.useRef(false);
+
   // Listen for Supabase OAuth / Session changes (e.g. after Google Sign-In redirect)
   useEffect(() => {
     const client = getSupabaseClient();
@@ -200,10 +206,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       let isSyncing = false;
       const syncSessionUser = async (providedSession?: any) => {
         if (isSyncing) return;
+        
+        // BUG FIX: Do NOT overwrite profile during or shortly after login.
+        // loginUser sets the correct profile from signInWithSupabase (which merges
+        // local profiles_db data). If syncSessionUser runs here, it reads from
+        // Supabase DB which may have STALE data, reverting the user's changes.
+        if (loginInProgressRef.current) {
+          return;
+        }
+        
+        // Prevent session sync from overwriting very recent manual profile updates (within 15s)
+        try {
+          const lastUpdate = localStorage.getItem('cityqr_last_profile_update');
+          if (lastUpdate && Date.now() - parseInt(lastUpdate, 10) < 15000) {
+            return;
+          }
+        } catch (e) {}
+
         isSyncing = true;
         try {
           const user = await getCurrentUserFromSupabaseSession(providedSession);
           if (user) {
+            // BUG FIX: Before overwriting, merge with local profiles_db to preserve
+            // any user-edited fields (name, avatar) that may not be in Supabase DB
+            try {
+              const profilesDb: UserProfile[] = JSON.parse(
+                localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]'
+              );
+              const localMatch = profilesDb.find(
+                p => p.email && user.email && p.email.toLowerCase() === user.email.toLowerCase()
+              );
+              if (localMatch) {
+                // ALWAYS prefer locally-saved name and avatar — they represent
+                // the user's explicit edits, which may not have been persisted to Supabase DB
+                if (localMatch.fullName && localMatch.fullName !== user.fullName) {
+                  user.fullName = localMatch.fullName;
+                }
+                if (localMatch.avatarUrl && localMatch.avatarUrl !== user.avatarUrl) {
+                  user.avatarUrl = localMatch.avatarUrl;
+                }
+              }
+            } catch (e) {}
+
             setCurrentUser(user);
             saveUserProfileToStorage(user);
             if (typeof window !== 'undefined' && (window.location.hash.includes('access_token') || window.location.search.includes('code='))) {
@@ -251,12 +295,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const loginUser = async (email: string, password: string) => {
-    const result = await signInWithSupabase(email, password);
-    if (result.user && !result.error) {
-      setCurrentUser(result.user);
-      saveUserProfileToStorage(result.user);
+    // BUG FIX: Block syncSessionUser from overwriting while login is in progress.
+    // signInWithPassword triggers onAuthStateChange(SIGNED_IN) which calls syncSessionUser.
+    // Without this flag, syncSessionUser reads stale Supabase DB data and OVERWRITES
+    // the correctly-merged profile that signInWithSupabase returns.
+    loginInProgressRef.current = true;
+    try {
+      const result = await signInWithSupabase(email, password);
+      if (result.user && !result.error) {
+        setCurrentUser(result.user);
+        saveUserProfileToStorage(result.user);
+      }
+      return { user: result.user, error: result.error };
+    } finally {
+      // Keep blocking for 5s after login to handle delayed onAuthStateChange events
+      setTimeout(() => {
+        loginInProgressRef.current = false;
+      }, 5000);
     }
-    return { user: result.user, error: result.error };
   };
 
   const loginWithGoogle = async () => {
@@ -280,9 +336,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logoutUser = async () => {
     try {
       setCurrentUser(null);
-      localStorage.removeItem('cityqr_current_user');
+      // BUG FIX: Only clear SESSION keys, NOT cityqr_profiles_db.
+      // The profiles DB must survive logout so that updated username/avatar
+      // are restored correctly when the user logs back in.
+      localStorage.removeItem(LOCAL_STORAGE_KEY_USER);   // 'cityqr_current_user'
       localStorage.removeItem('cityqr_local_user');
-      localStorage.removeItem(LOCAL_STORAGE_KEY_USER);
+      // Clear the profile-update guard so the next login session sync is not blocked
+      localStorage.removeItem('cityqr_last_profile_update');
       
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith('sb-') || key.includes('supabase.auth')) {
@@ -308,18 +368,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateUserProfile = async (updates: Partial<UserProfile>) => {
-    const baseUser = currentUser || getStoredUserProfile();
-    if (baseUser) {
-      const pendingUpdate: UserProfile = { ...baseUser, ...updates };
-      try {
-        const finalUser = await updateUserProfileInSupabase(pendingUpdate);
-        setCurrentUser(finalUser);
-        saveUserProfileToStorage(finalUser);
-      } catch (err) {
-        console.warn('Supabase update failed, not saving locally:', err);
-        throw err;
-      }
+    if (!currentUser) {
+      throw new Error('No active user session');
     }
+    const updated: UserProfile = { ...currentUser, ...updates };
+    setCurrentUser(updated);
+    await updateUserProfileInSupabase(updated);
   };
 
   // Actions

@@ -5,8 +5,16 @@ import { UserProfile } from '../types';
 const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || (import.meta as any).env?.VITE_SUPABASE_URL1 || '';
 const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY1 || '';
 
-// Check if credentials exist for real Supabase connection
-export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+// Check if valid production credentials exist for real Supabase connection
+export const isSupabaseConfigured = !!(
+  supabaseUrl &&
+  supabaseAnonKey &&
+  supabaseUrl.startsWith('https://') &&
+  !supabaseUrl.includes('placeholder') &&
+  !supabaseAnonKey.includes('placeholder') &&
+  !supabaseUrl.includes('YOUR_') &&
+  !supabaseAnonKey.includes('YOUR_')
+);
 
 let supabaseClient: ReturnType<typeof createClient> | null = null;
 
@@ -27,6 +35,29 @@ export function getSupabaseClient() {
 // Local Fallback Database Engine (for preview stability when environment variables are empty)
 const LOCAL_STORAGE_KEY_QR_CODES = 'cityqr_local_qrcodes';
 const LOCAL_STORAGE_KEY_EMERGENCY = 'cityqr_local_emergency';
+export const LOCAL_STORAGE_KEY_USER_EDITS = 'cityqr_user_edits';
+
+export function saveUserEdits(email: string, edits: { fullName?: string; avatarUrl?: string }) {
+  if (!email) return;
+  try {
+    const existing = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USER_EDITS) || '{}');
+    const userEmail = email.toLowerCase();
+    existing[userEmail] = { ...(existing[userEmail] || {}), ...edits };
+    localStorage.setItem(LOCAL_STORAGE_KEY_USER_EDITS, JSON.stringify(existing));
+  } catch (e) {
+    console.warn('Failed to save user edits:', e);
+  }
+}
+
+export function getUserEdits(email: string): { fullName?: string; avatarUrl?: string } | null {
+  if (!email) return null;
+  try {
+    const existing = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USER_EDITS) || '{}');
+    return existing[email.toLowerCase()] || null;
+  } catch (e) {
+    return null;
+  }
+}
 
 const INITIAL_QR_CODES = [
   {
@@ -595,8 +626,9 @@ export async function submitQRRatingInDB(qrId: string, userId: string, rating: n
 }
 
 // Authentication & Profiles Database Management
+// Exported so AppContext can use the exact same keys on logout
 export const LOCAL_STORAGE_KEY_USER = 'cityqr_current_user';
-const LOCAL_STORAGE_KEY_PROFILES_DB = 'cityqr_profiles_db';
+export const LOCAL_STORAGE_KEY_PROFILES_DB = 'cityqr_profiles_db';
 
 export async function signUpWithSupabase(
   email: string,
@@ -781,7 +813,11 @@ export async function signInWithSupabase(
             role: profileData.role || (authData.user.user_metadata?.role as any) || 'user',
             subRole: profileData.sub_role || (authData.user.user_metadata?.sub_role as any),
             subRoleTitle: profileData.sub_role_title || (authData.user.user_metadata?.sub_role_title as any),
-            fullName: profileData.full_name || authData.user.user_metadata?.full_name || 'مستخدم CityQR',
+            fullName: profileData.full_name || authData.user.user_metadata?.custom_full_name || authData.user.user_metadata?.full_name || authData.user.user_metadata?.name || 'مستخدم CityQR',
+            avatarUrl: profileData.avatar_url || authData.user.user_metadata?.custom_avatar_url || authData.user.user_metadata?.avatar_url || authData.user.user_metadata?.picture || '',
+            phoneNumber: profileData.phone_number || authData.user.user_metadata?.phone_number || '',
+            whatsappNumber: profileData.whatsapp_number || authData.user.user_metadata?.whatsapp_number || profileData.phone_number || '',
+            bio: profileData.bio || authData.user.user_metadata?.bio || '',
             createdAt: profileData.created_at || new Date().toISOString()
           };
         } else {
@@ -796,6 +832,10 @@ export async function signInWithSupabase(
             subRole: fallbackSubRole,
             subRoleTitle: fallbackSubRoleTitle,
             fullName: authData.user.user_metadata?.full_name || 'مستخدم CityQR',
+            avatarUrl: authData.user.user_metadata?.avatar_url || authData.user.user_metadata?.picture || '',
+            phoneNumber: authData.user.user_metadata?.phone_number || '',
+            whatsappNumber: authData.user.user_metadata?.whatsapp_number || '',
+            bio: authData.user.user_metadata?.bio || '',
             createdAt: new Date().toISOString()
           };
           await client.from('profiles').upsert({
@@ -811,6 +851,37 @@ export async function signInWithSupabase(
       }
     } catch (e: any) {
       console.warn('Supabase live signin failed, trying offline profiles fallback:', e);
+    }
+
+    // BUG FIX: Even when Supabase returned a profile, merge with local profiles_db
+    // to recover user-edited fields (name, avatar) that may not have been persisted
+    // to the Supabase DB (e.g., due to RLS policy, network failure, or paused project).
+    if (foundProfile) {
+      try {
+        const profilesDb: UserProfile[] = JSON.parse(
+          localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]'
+        );
+        const localMatch = profilesDb.find(
+          p => p.email && foundProfile!.email && p.email.toLowerCase() === foundProfile!.email.toLowerCase()
+        );
+        if (localMatch) {
+          // ALWAYS prefer locally-saved name and avatar over Supabase DB values.
+          // The local profiles_db is updated by saveUserProfileToStorage on EVERY
+          // profile edit, so it always has the freshest user-set values.
+          // The Supabase DB may have stale data if updateUserProfileInSupabase failed.
+          if (localMatch.fullName && localMatch.fullName !== foundProfile.fullName) {
+            foundProfile.fullName = localMatch.fullName;
+          }
+          if (localMatch.avatarUrl && localMatch.avatarUrl !== foundProfile.avatarUrl) {
+            foundProfile.avatarUrl = localMatch.avatarUrl;
+          }
+          if (localMatch.phoneNumber && !foundProfile.phoneNumber) foundProfile.phoneNumber = localMatch.phoneNumber;
+          if (localMatch.whatsappNumber && !foundProfile.whatsappNumber) foundProfile.whatsappNumber = localMatch.whatsappNumber;
+          if (localMatch.bio && !foundProfile.bio) foundProfile.bio = localMatch.bio;
+        }
+      } catch (e) {
+        console.warn('Could not merge local profile data:', e);
+      }
     }
   }
 
@@ -835,11 +906,24 @@ export async function signInWithSupabase(
       if (email.toLowerCase() === 'citizen@cityqr.com' && password !== 'user123456') {
         return { user: null as any, isLiveSupabase: false, error: 'كلمة المرور غير صحيحة لحساب العميل التجريبي. الباسورد الصحيح هو: user123456' };
       }
-      foundProfile = match;
+      // BUG FIX: Merge with cityqr_profiles_db entry to recover updated username/avatar.
+      // After logout, cityqr_current_user is cleared but cityqr_profiles_db persists.
+      // The profiles_db entry is updated by saveUserProfileToStorage on every profile update,
+      // so it always contains the latest username/avatar even after logout.
+      foundProfile = { ...match };
       errorMsg = undefined; // Clear any cloud error since user authenticated locally
     } else {
       // Reject login if account does not exist. Do not auto-create accounts on login!
       return { user: null as any, isLiveSupabase: false, error: 'هذا البريد الإلكتروني غير مسجل في النظام. يرجى الضغط على "إنشاء حساب جديد" أولاً / Account not found. Please switch to "Create New Account" first.' };
+    }
+  }
+
+  // BULLETPROOF FIX: Apply explicit user edits as the absolute final step
+  if (foundProfile && foundProfile.email) {
+    const edits = getUserEdits(foundProfile.email);
+    if (edits) {
+      if (edits.fullName) foundProfile.fullName = edits.fullName;
+      if (edits.avatarUrl) foundProfile.avatarUrl = edits.avatarUrl;
     }
   }
 
@@ -981,7 +1065,7 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
       const { data: rawProfile } = await client
         .from('profiles')
         .select('*')
-        .eq('email', email)
+        .eq('id', user.id)
         .maybeSingle();
       profile = rawProfile;
     } catch (e) {
@@ -1004,32 +1088,51 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
 
     // Determine accurate Full Name with proper priority:
     // Priority 1: Explicitly typed name in pending signup form
-    // Priority 2: Existing custom name saved in public.profiles DB table (if valid and non-generic)
+    // Priority 2: Existing custom name saved in public.profiles DB table (ALWAYS preferred over Google)
     // Priority 3: Google OAuth display name from Google Account metadata
     // Priority 4: Email username fallback
+    //
+    // BUG FIX: The old isGenericName check was too broad and could classify
+    // user-set names as generic, then replace them with the Google OAuth name.
+    // The DB value (profile.full_name) is the authoritative source — it is only
+    // a "placeholder" if it literally equals one of the known default strings.
     let resolvedFullName = profile?.full_name || '';
-    const isGenericName = !resolvedFullName || 
+    const isPlaceholderName = !resolvedFullName || 
       resolvedFullName.trim() === '' ||
       resolvedFullName.includes('(Google Auth)') || 
       resolvedFullName === 'مستخدم CityQR' || 
       resolvedFullName === 'Google User' || 
-      resolvedFullName === 'مستخدم جوجل';
+      resolvedFullName === 'مستخدم جوجل' ||
+      resolvedFullName === 'CityQR User';
 
     if (pendingSignup?.fullName && pendingSignup.fullName.trim() !== '') {
+      // User just registered with a specific name — use it
       resolvedFullName = pendingSignup.fullName.trim();
-    } else if (!isGenericName) {
-      // Keep existing custom profile name from public.profiles DB!
+    } else if (profile?.full_name && !isPlaceholderName) {
+      // DB has a custom name set by the user — ALWAYS preserve it
       resolvedFullName = profile.full_name;
     } else if (googleFullName && googleFullName.trim() !== '') {
+      // No custom name in DB, fall back to Google OAuth display name
       resolvedFullName = googleFullName.trim();
     } else {
       resolvedFullName = email.split('@')[0] || 'مستخدم CityQR';
     }
 
-    const resolvedAvatar = googleAvatar || profile?.avatar_url;
-
-    const existingLocalUser = getStoredUserProfile();
     const meta = user.user_metadata || {};
+
+    // Restore local user profile reference for supplementary fields (phone, bio, etc.)
+    // but NOT for avatar — avatar priority is strictly: DB → local profiles_db → Google
+    const existingLocalUser = getStoredUserProfile();
+
+    // Also check cityqr_profiles_db for the freshest locally-saved state.
+    // This survives logout and contains the latest user-edited values (name, avatar).
+    let localProfilesDbUser: UserProfile | null = null;
+    try {
+      const profilesDb: UserProfile[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]');
+      localProfilesDbUser = profilesDb.find(p => p.email && email && p.email.toLowerCase() === email.toLowerCase()) || null;
+    } catch (e) {}
+
+    const resolvedAvatar = profile?.avatar_url || localProfilesDbUser?.avatarUrl || meta.custom_avatar_url || existingLocalUser?.avatarUrl || meta.avatar_url || meta.picture || googleAvatar || '';
 
     if (profile) {
       const finalRole = isSuperAdminEmail ? 'admin' : (pendingSignup?.role || profile.role || meta.role || 'user');
@@ -1037,11 +1140,11 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
       const finalSubRoleTitle = isSuperAdminEmail ? 'المدير المباشر والأدمن الرئيسي (Super Admin)' : (pendingSignup?.subRoleTitle || profile.sub_role_title || meta.sub_role_title || '');
 
       // Database values are PRIMARY over Google Auth metadata!
-      const finalPhone = profile.phone_number || meta.phone_number || existingLocalUser?.phoneNumber || '';
-      const finalWhatsapp = profile.whatsapp_number || meta.whatsapp_number || existingLocalUser?.whatsappNumber || finalPhone || '';
-      const finalBio = profile.bio || meta.bio || existingLocalUser?.bio || '';
-      const finalAvatar = profile.avatar_url || resolvedAvatar || meta.avatar_url || existingLocalUser?.avatarUrl || '';
-      const finalFullName = resolvedFullName || profile.full_name || meta.full_name || meta.name || 'مستخدم CityQR';
+      const finalPhone = profile.phone_number || existingLocalUser?.phoneNumber || meta.phone_number || '';
+      const finalWhatsapp = profile.whatsapp_number || existingLocalUser?.whatsappNumber || meta.whatsapp_number || finalPhone || '';
+      const finalBio = profile.bio || existingLocalUser?.bio || meta.bio || '';
+      const finalAvatar = resolvedAvatar;
+      const finalFullName = resolvedFullName || profile.full_name || localProfilesDbUser?.fullName || meta.custom_full_name || existingLocalUser?.fullName || meta.full_name || meta.name || 'مستخدم CityQR';
 
       userProfile = {
         id: profile.id || user.id || existingLocalUser?.id,
@@ -1149,6 +1252,15 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
       } catch (e) {}
     }
 
+    // BULLETPROOF FIX: Apply explicit user edits as the absolute final step
+    if (userProfile && userProfile.email) {
+      const edits = getUserEdits(userProfile.email);
+      if (edits) {
+        if (edits.fullName) userProfile.fullName = edits.fullName;
+        if (edits.avatarUrl) userProfile.avatarUrl = edits.avatarUrl;
+      }
+    }
+
     // Sync Google Auth user_metadata so Supabase Auth Console matches DB Profile 100%
     if (client.auth && typeof client.auth.updateUser === 'function') {
       try {
@@ -1237,168 +1349,65 @@ export function saveUserProfileToStorage(user: UserProfile): void {
       existingProfiles.push(user);
     }
     localStorage.setItem(LOCAL_STORAGE_KEY_PROFILES_DB, JSON.stringify(existingProfiles));
+
+    // CRITICAL: Save explicitly edited fields to the bulletproof overrides store
+    if (user.email && (user.fullName || user.avatarUrl)) {
+      saveUserEdits(user.email, {
+        ...(user.fullName ? { fullName: user.fullName } : {}),
+        ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {})
+      });
+    }
   } catch (e) {
     console.warn('Error saving user profile to local storage:', e);
   }
 }
 
-export async function updateUserProfileInSupabase(user: UserProfile): Promise<UserProfile> {
+export async function updateUserProfileInSupabase(user: UserProfile): Promise<void> {
   const client = getSupabaseClient() as any;
   if (!client) {
-    console.warn('Supabase client not initialized, profile saved locally.');
-    saveUserProfileToStorage(user);
-    return user;
+    throw new Error('Supabase client not initialized');
   }
 
-  const updateTask = async (): Promise<UserProfile> => {
-    let lastError: any = null;
-    try {
-      if (client.auth) {
-        await client.auth.getSession().catch(() => null);
-      }
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+  if (sessionError || !sessionData?.session?.user?.id) {
+    throw new Error('User is not authenticated or session is invalid.');
+  }
 
-      // 2. Sync Supabase Auth user_metadata so Auth session holds updated details permanently
-      if (client.auth && typeof client.auth.updateUser === 'function') {
-        await client.auth.updateUser({
-          data: {
-            full_name: user.fullName || '',
-            name: user.fullName || '',
-            avatar_url: user.avatarUrl || '',
-            phone_number: user.phoneNumber || '',
-            whatsapp_number: user.whatsappNumber || user.phoneNumber || '',
-            bio: user.bio || '',
-            role: user.role || 'user',
-            sub_role: user.subRole || '',
-            sub_role_title: user.subRoleTitle || ''
-          }
-        }).catch((err: any) => console.warn('Auth updateUser metadata warning:', err));
-      }
+  const userId = sessionData.session.user.id;
 
-      // 3. Prepare full fields and core fields for DB update
-      const fullFields: any = {
+  if (typeof client.auth.updateUser === 'function') {
+    await client.auth.updateUser({
+      data: {
         full_name: user.fullName || '',
-        role: user.role || 'user',
-        sub_role: user.subRole || '',
-        sub_role_title: user.subRoleTitle || '',
+        name: user.fullName || '',
         avatar_url: user.avatarUrl || '',
+        custom_full_name: user.fullName || '',
+        custom_avatar_url: user.avatarUrl || '',
         phone_number: user.phoneNumber || '',
         whatsapp_number: user.whatsappNumber || user.phoneNumber || '',
         bio: user.bio || '',
-        updated_at: new Date().toISOString()
-      };
-
-      const coreFields: any = {
-        full_name: user.fullName || '',
         role: user.role || 'user',
-        avatar_url: user.avatarUrl || '',
-        phone_number: user.phoneNumber || '',
-        updated_at: new Date().toISOString()
-      };
-
-      let updatedInDB = false;
-      let finalUserData = null;
-
-      // Helper 1: Attempt update query forcing select() to confirm rows were actually modified
-      const doUpdate = async (fields: any): Promise<boolean> => {
-        if (user.email) {
-          const { data, error } = await client.from('profiles').update(fields).eq('email', user.email).select('*');
-          if (error) lastError = error;
-          if (!error && data && data.length > 0) {
-            finalUserData = data[0];
-            return true;
-          }
-        }
-        if (user.id) {
-          const { data, error } = await client.from('profiles').update(fields).eq('id', user.id).select('*');
-          if (error) lastError = error;
-          if (!error && data && data.length > 0) {
-            finalUserData = data[0];
-            return true;
-          }
-        }
-        return false;
-      };
-
-      // Helper 2: Attempt upsert query
-      const doUpsert = async (fields: any): Promise<boolean> => {
-        const record = {
-          ...(user.id ? { id: user.id } : {}),
-          ...(user.email ? { email: user.email } : {}),
-          ...fields
-        };
-        const { data, error } = await client.from('profiles').upsert(record, { onConflict: 'id' }).select('*');
-        if (error) {
-           lastError = error;
-           return false;
-        }
-        if (data && data.length > 0) {
-           finalUserData = data[0];
-        }
-        return true;
-      };
-
-      // Level 1: Full payload update
-      try {
-        updatedInDB = await doUpdate(fullFields);
-      } catch (e) {}
-
-      // Level 2: Core payload update (fallback if full payload failed due to unknown columns)
-      if (!updatedInDB) {
-        try {
-          updatedInDB = await doUpdate(coreFields);
-        } catch (e) {}
+        sub_role: user.subRole || '',
+        sub_role_title: user.subRoleTitle || ''
       }
+    }).catch((err: any) => console.warn('Auth updateUser metadata warning:', err));
+  }
 
-      // Level 3: Full payload upsert (if row did not exist yet)
-      if (!updatedInDB) {
-        try {
-          updatedInDB = await doUpsert(fullFields);
-        } catch (e) {}
-      }
-
-      // Level 4: Core payload upsert
-      if (!updatedInDB) {
-        try {
-          updatedInDB = await doUpsert(coreFields);
-        } catch (e) {}
-      }
-
-      console.log('Profile update process completed. DB update success status:', updatedInDB);
-      
-      if (!updatedInDB) {
-        throw new Error(lastError?.message || 'Update failed: No rows matched or permission denied.');
-      }
-      
-      return finalUserData ? {
-        ...user, // Keep existing fields if some are not in DB
-        fullName: finalUserData.full_name || user.fullName,
-        avatarUrl: finalUserData.avatar_url || user.avatarUrl,
-        phoneNumber: finalUserData.phone_number || user.phoneNumber,
-        whatsappNumber: finalUserData.whatsapp_number || user.whatsappNumber,
-        bio: finalUserData.bio || user.bio,
-        role: finalUserData.role || user.role,
-        subRole: finalUserData.sub_role || user.subRole,
-        subRoleTitle: finalUserData.sub_role_title || user.subRoleTitle
-      } : user;
-    } catch (e: any) {
-      console.warn('Failed to update profile in Supabase:', e?.message || e);
-      if (e?.message?.includes('Failed to fetch')) {
-         throw new Error('Failed to fetch: Unable to connect to Supabase. Your project might be paused, the URL might be incorrect, or you are offline.');
-      }
-      throw e;
-    }
+  const fullFields = {
+    full_name: user.fullName || '',
+    role: user.role || 'user',
+    sub_role: user.subRole || '',
+    sub_role_title: user.subRoleTitle || '',
+    avatar_url: user.avatarUrl || '',
+    phone_number: user.phoneNumber || '',
+    whatsapp_number: user.whatsappNumber || user.phoneNumber || '',
+    bio: user.bio || '',
+    updated_at: new Date().toISOString()
   };
 
-  const timeoutTask = new Promise<UserProfile>((_, reject) => {
-    setTimeout(() => {
-      reject(new Error('الشبكة ضعيفة أو تعذر الوصول لقاعدة البيانات. تأكد من إعدادات Vercel ووجود اتصال سحابي صحيح، ولا تعتمد على localhost.'));
-    }, 20000);
-  });
-
-  try {
-    return await Promise.race([updateTask(), timeoutTask]);
-  } catch (err) {
-    console.warn('Profile background sync timeout/error:', err);
-    throw err;
+  const { error } = await client.from('profiles').update(fullFields).eq('id', userId);
+  
+  if (error) {
+    throw error;
   }
 }
