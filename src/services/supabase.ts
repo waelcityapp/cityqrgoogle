@@ -1405,9 +1405,26 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
     updated_at: new Date().toISOString()
   };
 
-  const { error } = await client.from('profiles').update(fullFields).eq('id', userId);
-  
-  if (error) {
-    throw error;
+  // 1. Save local backup first
+  saveUserProfileToStorage(user);
+
+  // 2. Update DB by ID
+  let { data: idData, error: idError } = await client.from('profiles').update(fullFields).eq('id', userId).select('*');
+
+  // 3. Fallback: Update DB by Email if ID match returned no rows
+  if (!idError && (!idData || idData.length === 0) && user.email) {
+    const { data: emailData, error: emailError } = await client.from('profiles').update(fullFields).eq('email', user.email).select('*');
+    if (emailError) idError = emailError;
+    if (emailData && emailData.length > 0) idData = emailData;
+  }
+
+  // 4. Fallback: Upsert if record didn't exist yet
+  if (!idError && (!idData || idData.length === 0)) {
+    const upsertRecord = {
+      id: userId,
+      ...(user.email ? { email: user.email } : {}),
+      ...fullFields
+    };
+    await client.from('profiles').upsert(upsertRecord, { onConflict: 'id' }).catch(() => null);
   }
 }

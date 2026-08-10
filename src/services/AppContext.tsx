@@ -373,6 +373,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     const updated: UserProfile = { ...currentUser, ...updates };
     setCurrentUser(updated);
+    saveUserProfileToStorage(updated);
+    try {
+      localStorage.setItem('cityqr_last_profile_update', Date.now().toString());
+    } catch (e) {}
+
     await updateUserProfileInSupabase(updated);
   };
 
