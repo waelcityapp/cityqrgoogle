@@ -20,8 +20,7 @@ import {
   getStoredUserProfile,
   saveUserProfileToStorage,
   updateUserProfileInSupabase,
-  LOCAL_STORAGE_KEY_USER,
-  LOCAL_STORAGE_KEY_PROFILES_DB
+  LOCAL_STORAGE_KEY_USER
 } from './supabase';
 import { CountryProfile, detectUserCountry, WORLD_COUNTRIES } from './international';
 
@@ -206,23 +205,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       let isSyncing = false;
       const syncSessionUser = async (providedSession?: any) => {
         if (isSyncing) return;
-        
-        // BUG FIX: Do NOT overwrite profile during or shortly after login.
-        // loginUser sets the correct profile from signInWithSupabase (which merges
-        // local profiles_db data). If syncSessionUser runs here, it reads from
-        // Supabase DB which may have STALE data, reverting the user's changes.
-        if (loginInProgressRef.current) {
-          return;
-        }
-        
-        // Prevent session sync from overwriting very recent manual profile updates (within 15s)
-        try {
-          const lastUpdate = localStorage.getItem('cityqr_last_profile_update');
-          if (lastUpdate && Date.now() - parseInt(lastUpdate, 10) < 15000) {
-            return;
-          }
-        } catch (e) {}
-
         isSyncing = true;
         try {
           const user = await getCurrentUserFromSupabaseSession(providedSession);
@@ -249,12 +231,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
 
-      // Fallback single check if auth listener didn't trigger session
-      const initialTimer = setTimeout(() => {
-        if (!currentUser) {
-          syncSessionUser();
-        }
-      }, 500);
+      // Single check on mount to ensure session user is synced from DB
+      syncSessionUser();
 
       // Listen for local storage changes across tabs or windows
       const handleStorageChange = async (e: StorageEvent) => {
@@ -266,7 +244,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.addEventListener('storage', handleStorageChange);
 
       return () => {
-        clearTimeout(initialTimer);
         authListener?.subscription?.unsubscribe();
         window.removeEventListener('storage', handleStorageChange);
       };
@@ -315,21 +292,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logoutUser = async () => {
     try {
       setCurrentUser(null);
-      // BUG FIX: Only clear SESSION keys, NOT cityqr_profiles_db.
-      // The profiles DB must survive logout so that updated username/avatar
-      // are restored correctly when the user logs back in.
-      localStorage.removeItem(LOCAL_STORAGE_KEY_USER);   // 'cityqr_current_user'
-      localStorage.removeItem('cityqr_local_user');
-      // Clear the profile-update guard so the next login session sync is not blocked
-      localStorage.removeItem('cityqr_last_profile_update');
-      
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('sb-') || key.includes('supabase.auth')) {
-          localStorage.removeItem(key);
-        }
-      });
-      
       await signOutFromSupabase();
+      localStorage.clear(); // Complete purge of stale cache on phone/browser
     } catch(e) { 
       console.warn('Signout err', e);
     } finally {

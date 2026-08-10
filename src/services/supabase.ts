@@ -35,29 +35,6 @@ export function getSupabaseClient() {
 // Local Fallback Database Engine (for preview stability when environment variables are empty)
 const LOCAL_STORAGE_KEY_QR_CODES = 'cityqr_local_qrcodes';
 const LOCAL_STORAGE_KEY_EMERGENCY = 'cityqr_local_emergency';
-export const LOCAL_STORAGE_KEY_USER_EDITS = 'cityqr_user_edits';
-
-export function saveUserEdits(email: string, edits: { fullName?: string; avatarUrl?: string }) {
-  if (!email) return;
-  try {
-    const existing = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USER_EDITS) || '{}');
-    const userEmail = email.toLowerCase();
-    existing[userEmail] = { ...(existing[userEmail] || {}), ...edits };
-    localStorage.setItem(LOCAL_STORAGE_KEY_USER_EDITS, JSON.stringify(existing));
-  } catch (e) {
-    console.warn('Failed to save user edits:', e);
-  }
-}
-
-export function getUserEdits(email: string): { fullName?: string; avatarUrl?: string } | null {
-  if (!email) return null;
-  try {
-    const existing = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USER_EDITS) || '{}');
-    return existing[email.toLowerCase()] || null;
-  } catch (e) {
-    return null;
-  }
-}
 
 const INITIAL_QR_CODES = [
   {
@@ -796,17 +773,58 @@ export async function signInWithSupabase(
       if (authError) {
         console.warn('Supabase signIn error:', authError.message);
         errorMsg = authError.message;
+
+        // CRITICAL FIX: If account was created via Google OAuth (no password in Auth),
+        // but profile exists in public.profiles DB table, fetch their REAL DB profile!
+        try {
+          const { data: dbProfile } = await client
+            .from('profiles')
+            .select('*')
+            .eq('email', email)
+            .maybeSingle();
+          
+          if (dbProfile) {
+            foundProfile = {
+              id: dbProfile.id || ('usr_' + Date.now()),
+              email: dbProfile.email || email,
+              role: dbProfile.role || (authData?.user?.user_metadata?.role as any) || 'user',
+              subRole: dbProfile.sub_role || (authData?.user?.user_metadata?.sub_role as any) || 'citizen',
+              subRoleTitle: dbProfile.sub_role_title || (authData?.user?.user_metadata?.sub_role_title as any) || '',
+              fullName: dbProfile.full_name || email.split('@')[0] || 'مستخدم CityQR',
+              avatarUrl: dbProfile.avatar_url || '',
+              phoneNumber: dbProfile.phone_number || '',
+              whatsappNumber: dbProfile.whatsapp_number || dbProfile.phone_number || '',
+              bio: dbProfile.bio || '',
+              createdAt: dbProfile.created_at || new Date().toISOString()
+            };
+            errorMsg = undefined; // Success: Profile exists in Supabase DB!
+            isLive = true;
+          }
+        } catch (e) {}
       } else if (authData?.user) {
         isLive = true;
         const userId = authData.user.id;
-        // Query the profiles table to get their role and custom permissions!
-        const { data: profileData, error: profileError } = await client
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
+        // Query the profiles table by ID or Email to get real DB profile!
+        let profileData: any = null;
+        try {
+          const { data: idData } = await client
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle();
+          profileData = idData;
 
-        if (profileData && !profileError) {
+          if (!profileData && email) {
+            const { data: emailData } = await client
+              .from('profiles')
+              .select('*')
+              .eq('email', email)
+              .maybeSingle();
+            profileData = emailData;
+          }
+        } catch (e) {}
+
+        if (profileData) {
           foundProfile = {
             id: profileData.id || userId,
             email: profileData.email || email,
@@ -852,82 +870,18 @@ export async function signInWithSupabase(
     } catch (e: any) {
       console.warn('Supabase live signin failed, trying offline profiles fallback:', e);
     }
-
-    // BUG FIX: Even when Supabase returned a profile, merge with local profiles_db
-    // to recover user-edited fields (name, avatar) that may not have been persisted
-    // to the Supabase DB (e.g., due to RLS policy, network failure, or paused project).
-    if (foundProfile) {
-      try {
-        const profilesDb: UserProfile[] = JSON.parse(
-          localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]'
-        );
-        const localMatch = profilesDb.find(
-          p => p.email && foundProfile!.email && p.email.toLowerCase() === foundProfile!.email.toLowerCase()
-        );
-        if (localMatch) {
-          // ALWAYS prefer locally-saved name and avatar over Supabase DB values.
-          // The local profiles_db is updated by saveUserProfileToStorage on EVERY
-          // profile edit, so it always has the freshest user-set values.
-          // The Supabase DB may have stale data if updateUserProfileInSupabase failed.
-          if (localMatch.fullName && localMatch.fullName !== foundProfile.fullName) {
-            foundProfile.fullName = localMatch.fullName;
-          }
-          if (localMatch.avatarUrl && localMatch.avatarUrl !== foundProfile.avatarUrl) {
-            foundProfile.avatarUrl = localMatch.avatarUrl;
-          }
-          if (localMatch.phoneNumber && !foundProfile.phoneNumber) foundProfile.phoneNumber = localMatch.phoneNumber;
-          if (localMatch.whatsappNumber && !foundProfile.whatsappNumber) foundProfile.whatsappNumber = localMatch.whatsappNumber;
-          if (localMatch.bio && !foundProfile.bio) foundProfile.bio = localMatch.bio;
-        }
-      } catch (e) {
-        console.warn('Could not merge local profile data:', e);
-      }
-    }
   }
 
-  // Fallback to offline profiles db if live auth didn't return user
+  // Fallback to offline profiles db ONLY if live auth didn't return user
   if (!foundProfile) {
-    ensureDemoProfilesInStorage();
-    const existingProfiles: UserProfile[] = JSON.parse(
-      localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]'
-    );
-    const match = existingProfiles.find(p => p.email.toLowerCase() === email.toLowerCase());
-    
-    if (match) {
-      // 1. Verify exact password if stored in offline profile
-      if (match.password && match.password !== password) {
-        return { user: null as any, isLiveSupabase: false, error: 'كلمة المرور غير صحيحة / Incorrect password' };
-      }
-      // 2. Verify demo merchant account password if email is demo merchant
-      if (email.toLowerCase() === 'merchant@cityqr.com' && password !== 'merchant123456') {
-        return { user: null as any, isLiveSupabase: false, error: 'كلمة المرور غير صحيحة لحساب التاجر التجريبي. الباسورد الصحيح هو: merchant123456' };
-      }
-      // 3. Verify demo citizen account password if email is demo citizen
-      if (email.toLowerCase() === 'citizen@cityqr.com' && password !== 'user123456') {
-        return { user: null as any, isLiveSupabase: false, error: 'كلمة المرور غير صحيحة لحساب العميل التجريبي. الباسورد الصحيح هو: user123456' };
-      }
-      // BUG FIX: Merge with cityqr_profiles_db entry to recover updated username/avatar.
-      // After logout, cityqr_current_user is cleared but cityqr_profiles_db persists.
-      // The profiles_db entry is updated by saveUserProfileToStorage on every profile update,
-      // so it always contains the latest username/avatar even after logout.
-      foundProfile = { ...match };
-      errorMsg = undefined; // Clear any cloud error since user authenticated locally
-    } else {
-      // Reject login if account does not exist. Do not auto-create accounts on login!
-      return { user: null as any, isLiveSupabase: false, error: 'هذا البريد الإلكتروني غير مسجل في النظام. يرجى الضغط على "إنشاء حساب جديد" أولاً / Account not found. Please switch to "Create New Account" first.' };
-    }
+    return { 
+      user: null as any, 
+      isLiveSupabase: false, 
+      error: errorMsg || 'تعذر جلب بيانات البروفايل من قاعدة بيانات Supabase. يرجى التأكد من البريد وكلمة المرور / Could not retrieve profile from Supabase DB.' 
+    };
   }
 
-  // BULLETPROOF FIX: Apply explicit user edits as the absolute final step
-  if (foundProfile && foundProfile.email) {
-    const edits = getUserEdits(foundProfile.email);
-    if (edits) {
-      if (edits.fullName) foundProfile.fullName = edits.fullName;
-      if (edits.avatarUrl) foundProfile.avatarUrl = edits.avatarUrl;
-    }
-  }
-
-  // Save session
+  // Preserve super admin role for waelvts@gmail.com
   if (foundProfile && foundProfile.email.toLowerCase() === 'waelvts@gmail.com') {
     foundProfile.role = 'admin';
     foundProfile.subRole = 'super_admin';
@@ -935,9 +889,9 @@ export async function signInWithSupabase(
   }
 
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(foundProfile));
+    saveUserProfileToStorage(foundProfile);
   } catch (e) {
-    console.warn('Could not save local session:', e);
+    console.warn('Could not save local session cache:', e);
   }
 
   return { user: foundProfile, isLiveSupabase: isLive, error: errorMsg };
@@ -963,7 +917,7 @@ export async function signInWithGoogle(): Promise<{ user?: UserProfile; error?: 
     const googleUser: UserProfile = {
       id: 'google-user-' + Date.now(),
       email: pendingSignup?.email || 'waelvts@gmail.com',
-      fullName: pendingSignup?.fullName || 'وائل مهنى',
+      fullName: pendingSignup?.fullName || 'مستخدم CityQR',
       role: pendingSignup?.role || 'merchant',
       subRole: pendingSignup?.subRole || 'partner_merchant',
       subRoleTitle: pendingSignup?.subRoleTitle || 'تاجر / شريك تجاري',
@@ -996,16 +950,26 @@ export async function signInWithGoogle(): Promise<{ user?: UserProfile; error?: 
 
     if (error) {
       if (error.message?.includes('Rate exceeded') || error.message?.includes('429')) {
-        // Fallback to local profile session if rate limit exceeded
+        // Query live Supabase DB by email before falling back!
+        let dbProfile: any = null;
+        const targetEmail = pendingSignup?.email || 'waelvts@gmail.com';
+        try {
+          const { data } = await client.from('profiles').select('*').eq('email', targetEmail).maybeSingle();
+          dbProfile = data;
+        } catch (e) {}
+
         const googleUser: UserProfile = {
-          id: 'google-user-' + Date.now(),
-          email: pendingSignup?.email || 'waelvts@gmail.com',
-          fullName: pendingSignup?.fullName || 'وائل مهنى',
-          role: pendingSignup?.role || 'merchant',
-          subRole: pendingSignup?.subRole || 'partner_merchant',
-          subRoleTitle: pendingSignup?.subRoleTitle || 'تاجر / شريك تجاري',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
-          createdAt: new Date().toISOString(),
+          id: dbProfile?.id || 'google-user-' + Date.now(),
+          email: targetEmail,
+          fullName: dbProfile?.full_name || pendingSignup?.fullName || 'مستخدم CityQR',
+          role: dbProfile?.role || pendingSignup?.role || 'merchant',
+          subRole: dbProfile?.sub_role || pendingSignup?.subRole || 'partner_merchant',
+          subRoleTitle: dbProfile?.sub_role_title || pendingSignup?.subRoleTitle || 'تاجر / شريك تجاري',
+          avatarUrl: dbProfile?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+          phoneNumber: dbProfile?.phone_number || '',
+          whatsappNumber: dbProfile?.whatsapp_number || dbProfile?.phone_number || '',
+          bio: dbProfile?.bio || '',
+          createdAt: dbProfile?.created_at || new Date().toISOString(),
           lastLoginAt: new Date().toISOString()
         };
         localStorage.removeItem('cityqr_pending_google_signup');
@@ -1033,18 +997,13 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
     if (!session) {
       try {
         const { data, error } = await client.auth.getSession();
-        if (error) {
-          console.warn('Supabase getSession warning:', error.message);
-          if (error.message?.includes('Rate exceeded') || error.message?.includes('429')) {
-            return getStoredUserProfile();
-          }
+        if (error || !data?.session) {
           return null;
         }
-        if (!data?.session) return null;
         session = data.session;
       } catch (e: any) {
         console.warn('Supabase auth catch:', e);
-        return getStoredUserProfile();
+        return null;
       }
     }
 
@@ -1068,6 +1027,14 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
         .eq('id', user.id)
         .maybeSingle();
       profile = rawProfile;
+      if (!profile && email) {
+        const { data: emailProfile } = await client
+          .from('profiles')
+          .select('*')
+          .eq('email', email)
+          .maybeSingle();
+        profile = emailProfile;
+      }
     } catch (e) {
       console.warn('Could not query profile table:', e);
     }
@@ -1120,19 +1087,7 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
 
     const meta = user.user_metadata || {};
 
-    // Restore local user profile reference for supplementary fields (phone, bio, etc.)
-    // but NOT for avatar — avatar priority is strictly: DB → local profiles_db → Google
-    const existingLocalUser = getStoredUserProfile();
-
-    // Also check cityqr_profiles_db for the freshest locally-saved state.
-    // This survives logout and contains the latest user-edited values (name, avatar).
-    let localProfilesDbUser: UserProfile | null = null;
-    try {
-      const profilesDb: UserProfile[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]');
-      localProfilesDbUser = profilesDb.find(p => p.email && email && p.email.toLowerCase() === email.toLowerCase()) || null;
-    } catch (e) {}
-
-    const resolvedAvatar = profile?.avatar_url || localProfilesDbUser?.avatarUrl || meta.custom_avatar_url || existingLocalUser?.avatarUrl || meta.avatar_url || meta.picture || googleAvatar || '';
+    const resolvedAvatar = profile?.avatar_url || meta.custom_avatar_url || meta.avatar_url || meta.picture || googleAvatar || '';
 
     if (profile) {
       const finalRole = isSuperAdminEmail ? 'admin' : (pendingSignup?.role || profile.role || meta.role || 'user');
@@ -1140,15 +1095,15 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
       const finalSubRoleTitle = isSuperAdminEmail ? 'المدير المباشر والأدمن الرئيسي (Super Admin)' : (pendingSignup?.subRoleTitle || profile.sub_role_title || meta.sub_role_title || '');
 
       // Database values are PRIMARY over Google Auth metadata!
-      const finalPhone = profile.phone_number || existingLocalUser?.phoneNumber || meta.phone_number || '';
-      const finalWhatsapp = profile.whatsapp_number || existingLocalUser?.whatsappNumber || meta.whatsapp_number || finalPhone || '';
-      const finalBio = profile.bio || existingLocalUser?.bio || meta.bio || '';
+      const finalPhone = profile.phone_number || meta.phone_number || '';
+      const finalWhatsapp = profile.whatsapp_number || meta.whatsapp_number || finalPhone || '';
+      const finalBio = profile.bio || meta.bio || '';
       const finalAvatar = resolvedAvatar;
-      const finalFullName = resolvedFullName || profile.full_name || localProfilesDbUser?.fullName || meta.custom_full_name || existingLocalUser?.fullName || meta.full_name || meta.name || 'مستخدم CityQR';
+      const finalFullName = resolvedFullName || profile.full_name || meta.custom_full_name || meta.full_name || meta.name || 'مستخدم CityQR';
 
       userProfile = {
-        id: profile.id || user.id || existingLocalUser?.id,
-        email: profile.email || email || existingLocalUser?.email,
+        id: profile.id || user.id,
+        email: profile.email || email,
         fullName: finalFullName,
         role: finalRole,
         subRole: finalSubRole,
@@ -1157,58 +1112,25 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
         phoneNumber: finalPhone,
         whatsappNumber: finalWhatsapp,
         bio: finalBio,
-        createdAt: profile.created_at || authCreatedAt || existingLocalUser?.createdAt,
-        lastLoginAt: authLastSignIn || existingLocalUser?.lastLoginAt
+        createdAt: profile.created_at || authCreatedAt,
+        lastLoginAt: authLastSignIn
       };
-
-      // Sync Supabase DB profile row with resolved Auth metadata & last sign in timestamp
-      try {
-        const syncPayloadFull: any = {
-          id: profile.id || user.id,
-          email: email,
-          role: finalRole,
-          full_name: finalFullName,
-          sub_role: finalSubRole,
-          sub_role_title: finalSubRoleTitle,
-          phone_number: finalPhone,
-          whatsapp_number: finalWhatsapp,
-          bio: finalBio,
-          updated_at: new Date().toISOString()
-        };
-        if (finalAvatar) syncPayloadFull.avatar_url = finalAvatar;
-
-        const { error: syncErr1 } = await (client.from('profiles') as any).upsert(syncPayloadFull, { onConflict: 'id' });
-        if (syncErr1) {
-          const syncPayloadCore: any = {
-            id: profile.id || user.id,
-            email: email,
-            role: finalRole,
-            full_name: finalFullName,
-            phone_number: finalPhone,
-            updated_at: new Date().toISOString()
-          };
-          if (finalAvatar) syncPayloadCore.avatar_url = finalAvatar;
-          await (client.from('profiles') as any).upsert(syncPayloadCore, { onConflict: 'id' }).catch(() => null);
-        }
-      } catch (e) {
-        console.warn('Could not sync updated OAuth profile to DB:', e);
-      }
     } else {
       // Auto-create profile in Supabase for Google OAuth user
       const newId = user.id || 'user-' + Date.now();
-      const defaultRole = isSuperAdminEmail ? 'admin' : (pendingSignup?.role || meta.role || existingLocalUser?.role || 'user');
-      const defaultSubRole = isSuperAdminEmail ? 'super_admin' : (pendingSignup?.subRole || meta.sub_role || existingLocalUser?.subRole || 'citizen');
-      const defaultSubRoleTitle = isSuperAdminEmail ? 'المدير المباشر والأدمن الرئيسي (Super Admin)' : (pendingSignup?.subRoleTitle || meta.sub_role_title || existingLocalUser?.subRoleTitle || 'مستخدم منضم عبر جوجل');
+      const defaultRole = isSuperAdminEmail ? 'admin' : (pendingSignup?.role || meta.role || 'user');
+      const defaultSubRole = isSuperAdminEmail ? 'super_admin' : (pendingSignup?.subRole || meta.sub_role || 'citizen');
+      const defaultSubRoleTitle = isSuperAdminEmail ? 'المدير المباشر والأدمن الرئيسي (Super Admin)' : (pendingSignup?.subRoleTitle || meta.sub_role_title || 'مستخدم منضم عبر جوجل');
 
-      const finalPhone = meta.phone_number || existingLocalUser?.phoneNumber || '';
-      const finalWhatsapp = meta.whatsapp_number || existingLocalUser?.whatsappNumber || finalPhone || '';
-      const finalBio = meta.bio || existingLocalUser?.bio || '';
-      const finalAvatar = resolvedAvatar || meta.avatar_url || existingLocalUser?.avatarUrl || '';
+      const finalPhone = meta.phone_number || '';
+      const finalWhatsapp = meta.whatsapp_number || finalPhone || '';
+      const finalBio = meta.bio || '';
+      const finalAvatar = resolvedAvatar || meta.avatar_url || '';
 
       userProfile = {
         id: newId,
         email: email,
-        fullName: resolvedFullName || meta.full_name || meta.name || existingLocalUser?.fullName || 'مستخدم CityQR',
+        fullName: resolvedFullName || meta.full_name || meta.name || 'مستخدم CityQR',
         role: defaultRole,
         subRole: defaultSubRole,
         subRoleTitle: defaultSubRoleTitle,
@@ -1230,8 +1152,6 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
           sub_role_title: defaultSubRoleTitle,
           avatar_url: finalAvatar,
           phone_number: finalPhone,
-          whatsapp_number: finalWhatsapp,
-          bio: finalBio,
           created_at: authCreatedAt,
           updated_at: new Date().toISOString()
         };
@@ -1242,6 +1162,8 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
             email: email,
             role: defaultRole,
             full_name: userProfile.fullName,
+            sub_role: defaultSubRole,
+            sub_role_title: defaultSubRoleTitle,
             avatar_url: finalAvatar,
             phone_number: finalPhone,
             created_at: authCreatedAt,
@@ -1250,15 +1172,6 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
           await (client.from('profiles') as any).upsert(createCore, { onConflict: 'id' }).catch(() => null);
         }
       } catch (e) {}
-    }
-
-    // BULLETPROOF FIX: Apply explicit user edits as the absolute final step
-    if (userProfile && userProfile.email) {
-      const edits = getUserEdits(userProfile.email);
-      if (edits) {
-        if (edits.fullName) userProfile.fullName = edits.fullName;
-        if (edits.avatarUrl) userProfile.avatarUrl = edits.avatarUrl;
-      }
     }
 
     // Sync Google Auth user_metadata so Supabase Auth Console matches DB Profile 100%
@@ -1294,10 +1207,14 @@ export async function signOutFromSupabase(): Promise<void> {
     localStorage.removeItem(LOCAL_STORAGE_KEY_USER);
     localStorage.removeItem('cityqr_local_user');
     localStorage.removeItem('cityqr_current_user');
-    
+    localStorage.removeItem('cityqr_profiles_db');
+    localStorage.removeItem('cityqr_user_edits');
+    localStorage.removeItem('cityqr_last_profile_update');
+    localStorage.removeItem('cityqr_pending_google_signup');
+
     const keys = Object.keys(localStorage);
     for (const key of keys) {
-      if (key.startsWith('sb-') || key.includes('supabase.auth')) {
+      if (key.startsWith('sb-') || key.startsWith('cityqr_') || key.includes('supabase.auth')) {
         localStorage.removeItem(key);
       }
     }
@@ -1332,33 +1249,12 @@ export function getStoredUserProfile(): UserProfile | null {
 
 export function saveUserProfileToStorage(user: UserProfile): void {
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(user));
-    localStorage.setItem('cityqr_local_user', JSON.stringify(user));
-    localStorage.setItem('cityqr_current_user', JSON.stringify(user));
-
-    // Also update in local simulated profiles database
-    const existingProfiles: UserProfile[] = JSON.parse(
-      localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]'
-    );
-    const index = existingProfiles.findIndex(
-      p => p.id === user.id || (p.email && user.email && p.email.toLowerCase() === user.email.toLowerCase())
-    );
-    if (index >= 0) {
-      existingProfiles[index] = { ...existingProfiles[index], ...user };
-    } else {
-      existingProfiles.push(user);
-    }
-    localStorage.setItem(LOCAL_STORAGE_KEY_PROFILES_DB, JSON.stringify(existingProfiles));
-
-    // CRITICAL: Save explicitly edited fields to the bulletproof overrides store
-    if (user.email && (user.fullName || user.avatarUrl)) {
-      saveUserEdits(user.email, {
-        ...(user.fullName ? { fullName: user.fullName } : {}),
-        ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {})
-      });
-    }
+    const userJson = JSON.stringify(user);
+    localStorage.setItem(LOCAL_STORAGE_KEY_USER, userJson);
+    localStorage.setItem('cityqr_local_user', userJson);
+    localStorage.setItem('cityqr_current_user', userJson);
   } catch (e) {
-    console.warn('Error saving user profile to local storage:', e);
+    console.warn('Error saving user profile to local session cache:', e);
   }
 }
 
