@@ -68,13 +68,26 @@ function CityQRAppContent() {
   
   const t = translations[language];
 
-  // Current active navigation tab (default is the visitor landing page!)
-  const [activeTab, setActiveTab] = useState(() => {
-    if (typeof window !== 'undefined' && (window.location.hash.includes('access_token') || window.location.search.includes('code='))) {
-      return 'account';
+  // Current active navigation tab (restored from localStorage on refresh)
+  const [activeTab, setActiveTabState] = useState(() => {
+    if (typeof window !== 'undefined') {
+      if (window.location.hash.includes('access_token') || window.location.search.includes('code=')) {
+        return 'account';
+      }
+      try {
+        const savedTab = localStorage.getItem('cityqr_active_tab');
+        if (savedTab) return savedTab;
+      } catch (e) {}
     }
     return 'landing';
   });
+
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    try {
+      localStorage.setItem('cityqr_active_tab', tab);
+    } catch (e) {}
+  };
 
   // Removed auto-redirect so user stays on Account or Landing explicitly.
 

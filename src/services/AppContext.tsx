@@ -227,27 +227,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const user = await getCurrentUserFromSupabaseSession(providedSession);
           if (user) {
-            // BUG FIX: Before overwriting, merge with local profiles_db to preserve
-            // any user-edited fields (name, avatar) that may not be in Supabase DB
-            try {
-              const profilesDb: UserProfile[] = JSON.parse(
-                localStorage.getItem(LOCAL_STORAGE_KEY_PROFILES_DB) || '[]'
-              );
-              const localMatch = profilesDb.find(
-                p => p.email && user.email && p.email.toLowerCase() === user.email.toLowerCase()
-              );
-              if (localMatch) {
-                // ALWAYS prefer locally-saved name and avatar — they represent
-                // the user's explicit edits, which may not have been persisted to Supabase DB
-                if (localMatch.fullName && localMatch.fullName !== user.fullName) {
-                  user.fullName = localMatch.fullName;
-                }
-                if (localMatch.avatarUrl && localMatch.avatarUrl !== user.avatarUrl) {
-                  user.avatarUrl = localMatch.avatarUrl;
-                }
-              }
-            } catch (e) {}
-
             setCurrentUser(user);
             saveUserProfileToStorage(user);
             if (typeof window !== 'undefined' && (window.location.hash.includes('access_token') || window.location.search.includes('code='))) {
