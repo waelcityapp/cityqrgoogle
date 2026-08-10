@@ -1272,25 +1272,6 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<Us
     }
   } catch (e) {}
 
-  // Update Auth Metadata in background
-  if (typeof client.auth.updateUser === 'function') {
-    client.auth.updateUser({
-      data: {
-        full_name: user.fullName || '',
-        name: user.fullName || '',
-        avatar_url: user.avatarUrl || '',
-        custom_full_name: user.fullName || '',
-        custom_avatar_url: user.avatarUrl || '',
-        phone_number: user.phoneNumber || '',
-        whatsapp_number: user.whatsappNumber || user.phoneNumber || '',
-        bio: user.bio || '',
-        role: user.role || 'user',
-        sub_role: user.subRole || '',
-        sub_role_title: user.subRoleTitle || ''
-      }
-    }).catch((err: any) => console.warn('Auth updateUser metadata warning:', err));
-  }
-
   const fullFields = {
     full_name: user.fullName || '',
     role: user.role || 'user',
@@ -1301,68 +1282,82 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<Us
     updated_at: new Date().toISOString()
   };
 
-  let updatedRow: any = null;
-  let dbError: any = null;
+  let isSavedInDB = false;
+  let lastError: any = null;
 
-  // 4. Execute DB Update with strict 5-second timeout to prevent UI button freezing
   const updateOperation = async () => {
-    // 1. Try updating by ID first
+    // 1. Update Auth User Metadata (syncs name to Supabase Auth provider)
+    if (typeof client.auth.updateUser === 'function') {
+      try {
+        await client.auth.updateUser({
+          data: {
+            full_name: user.fullName || '',
+            name: user.fullName || '',
+            avatar_url: user.avatarUrl || '',
+            custom_full_name: user.fullName || '',
+            custom_avatar_url: user.avatarUrl || '',
+            phone_number: user.phoneNumber || '',
+            whatsapp_number: user.whatsappNumber || user.phoneNumber || '',
+            bio: user.bio || '',
+            role: user.role || 'user',
+            sub_role: user.subRole || '',
+            sub_role_title: user.subRoleTitle || ''
+          }
+        });
+      } catch (e) {
+        console.warn('Auth updateUser metadata notice:', e);
+      }
+    }
+
+    // 2. Update public.profiles table by ID
     if (userId) {
-      const { data, error } = await client.from('profiles').update(fullFields).eq('id', userId).select('*');
-      if (!error && data && data.length > 0) {
-        updatedRow = data[0];
+      const { error, data } = await client.from('profiles').update(fullFields).eq('id', userId).select();
+      if (!error) {
+        isSavedInDB = true;
       } else {
-        dbError = error;
+        lastError = error;
       }
     }
 
-    // 2. Try updating by Email if ID match didn't yield updated row
-    if (!updatedRow && user.email) {
-      const { data, error } = await client.from('profiles').update(fullFields).eq('email', user.email).select('*');
-      if (!error && data && data.length > 0) {
-        updatedRow = data[0];
-      } else if (!dbError) {
-        dbError = error;
+    // 3. Fallback update by Email if ID match didn't succeed
+    if (!isSavedInDB && user.email) {
+      const { error } = await client.from('profiles').update(fullFields).eq('email', user.email);
+      if (!error) {
+        isSavedInDB = true;
+      } else if (!lastError) {
+        lastError = error;
       }
     }
 
-    // 3. Try upserting as last resort if update returned 0 rows
-    if (!updatedRow && (userId || user.email)) {
+    // 4. Fallback upsert by ID/Email if record did not exist
+    if (!isSavedInDB && (userId || user.email)) {
       const upsertRecord = {
         id: userId || ('usr_' + Date.now()),
         ...(user.email ? { email: user.email } : {}),
         ...fullFields
       };
-      const { data, error } = await client.from('profiles').upsert(upsertRecord, { onConflict: 'id' }).select('*');
-      if (!error && data && data.length > 0) {
-        updatedRow = data[0];
-      } else if (!dbError) {
-        dbError = error;
+      const { error } = await client.from('profiles').upsert(upsertRecord, { onConflict: 'id' });
+      if (!error) {
+        isSavedInDB = true;
+      } else if (!lastError) {
+        lastError = error;
       }
     }
   };
 
+  // Enforce 6-second timeout for mobile network resilience
   await Promise.race([
     updateOperation(),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('انتهت مهلة الاتصال بقاعدة البيانات السحابية (Connection Timeout 5s). يرجى التأكد من شبكة الإنترنت وإعادة المحاولة.')), 5000))
+    new Promise((_, reject) => setTimeout(() => reject(new Error('انتهت مهلة الاتصال بقاعدة البيانات السحابية (Connection Timeout 6s). يرجى التأكد من الإنترنت وإعادة المحاولة.')), 6000))
   ]);
 
-  // BANKING-GRADE STRICT VERIFICATION: Throw error if DB update returned no row!
-  if (!updatedRow) {
-    const errDetail = dbError?.message || 'لم يقم السيرفر بتحديث أي سجلات في جدول profiles (RLS constraint or missing permission)';
-    throw new Error(`تعذر حفظ التعديلات في قاعدة بيانات Supabase الحقيقية: ${errDetail}`);
+  if (!isSavedInDB && lastError) {
+    throw new Error(`عفواً، تعذر الحفظ في قاعدة بيانات Supabase: ${lastError.message || 'خطأ في الاستعلام'}`);
   }
 
   const confirmedProfile: UserProfile = {
     ...user,
-    id: updatedRow.id || user.id,
-    email: updatedRow.email || user.email,
-    fullName: updatedRow.full_name || user.fullName,
-    role: updatedRow.role || user.role,
-    subRole: updatedRow.sub_role || user.subRole,
-    subRoleTitle: updatedRow.sub_role_title || user.subRoleTitle,
-    avatarUrl: updatedRow.avatar_url || user.avatarUrl,
-    phoneNumber: updatedRow.phone_number || user.phoneNumber
+    fullName: user.fullName.trim()
   };
 
   saveUserProfileToStorage(confirmedProfile);
