@@ -203,6 +203,9 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
   const handleSaveProfile = async (e?: React.FormEvent | React.MouseEvent) => {
     if (e) e.preventDefault();
     if (isSavingProfile) return;
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     setIsSavingProfile(true);
     setProfileErrorMsg(null);
     setProfileSuccessMsg(null);
@@ -602,7 +605,7 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                   </span>
                 </div>
                 
-                <form onSubmit={handleSaveProfile} className="space-y-8">
+                <form onSubmit={handleSaveProfile} noValidate className="space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     
                     <div className="space-y-3">
@@ -626,6 +629,8 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                       </label>
                       <input
                         type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
                         value={editPhoneNumber}
                         onChange={(e) => setEditPhoneNumber(e.target.value)}
                         placeholder={language === 'ar' ? '+201xxxxxxxxx...' : 'Enter phone number...'}
@@ -640,6 +645,8 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                       </label>
                       <input
                         type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
                         value={editWhatsapp}
                         onChange={(e) => setEditWhatsapp(e.target.value)}
                         placeholder={language === 'ar' ? '+201xxxxxxxxx...' : 'Enter WhatsApp number...'}
@@ -669,7 +676,9 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                     </label>
                     <div className="flex flex-col sm:flex-row gap-3">
                       <input
-                        type="url"
+                        type="text"
+                        inputMode="url"
+                        autoComplete="url"
                         value={editAvatarUrl}
                         onChange={(e) => setEditAvatarUrl(e.target.value)}
                         placeholder={language === 'ar' ? 'أو ألصق رابط صورة هنا...' : 'Or paste image URL here...'}
@@ -746,8 +755,9 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                     </button>
                     <button
                       type="submit"
+                      onClick={(e) => handleSaveProfile(e)}
                       disabled={isSavingProfile}
-                      className="w-full sm:w-auto px-10 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all shadow-lg shadow-blue-500/30 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+                      className="w-full sm:w-auto px-10 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all shadow-lg shadow-blue-500/30 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed touch-manipulation cursor-pointer"
                     >
                       {isSavingProfile ? (
                         <>
