@@ -1311,20 +1311,20 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<Us
 
     // 2. Update public.profiles table by ID
     if (userId) {
-      const { error, data } = await client.from('profiles').update(fullFields).eq('id', userId).select();
-      if (!error) {
+      const { error, data } = await client.from('profiles').update(fullFields).eq('id', userId).select('*');
+      if (!error && data && data.length > 0) {
         isSavedInDB = true;
-      } else {
+      } else if (error) {
         lastError = error;
       }
     }
 
-    // 3. Fallback update by Email if ID match didn't succeed
+    // 3. Fallback update by Email if ID match didn't update any rows
     if (!isSavedInDB && user.email) {
-      const { error } = await client.from('profiles').update(fullFields).eq('email', user.email);
-      if (!error) {
+      const { error, data } = await client.from('profiles').update(fullFields).eq('email', user.email).select('*');
+      if (!error && data && data.length > 0) {
         isSavedInDB = true;
-      } else if (!lastError) {
+      } else if (error && !lastError) {
         lastError = error;
       }
     }
@@ -1336,10 +1336,10 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<Us
         ...(user.email ? { email: user.email } : {}),
         ...fullFields
       };
-      const { error } = await client.from('profiles').upsert(upsertRecord, { onConflict: 'id' });
-      if (!error) {
+      const { error, data } = await client.from('profiles').upsert(upsertRecord, { onConflict: 'id' }).select('*');
+      if (!error && data && data.length > 0) {
         isSavedInDB = true;
-      } else if (!lastError) {
+      } else if (error && !lastError) {
         lastError = error;
       }
     }
