@@ -1304,40 +1304,48 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<Us
   let updatedRow: any = null;
   let dbError: any = null;
 
-  // 1. Try updating by ID first
-  if (userId) {
-    const { data, error } = await client.from('profiles').update(fullFields).eq('id', userId).select('*');
-    if (!error && data && data.length > 0) {
-      updatedRow = data[0];
-    } else {
-      dbError = error;
+  // 4. Execute DB Update with strict 5-second timeout to prevent UI button freezing
+  const updateOperation = async () => {
+    // 1. Try updating by ID first
+    if (userId) {
+      const { data, error } = await client.from('profiles').update(fullFields).eq('id', userId).select('*');
+      if (!error && data && data.length > 0) {
+        updatedRow = data[0];
+      } else {
+        dbError = error;
+      }
     }
-  }
 
-  // 2. Try updating by Email if ID match didn't yield updated row
-  if (!updatedRow && user.email) {
-    const { data, error } = await client.from('profiles').update(fullFields).eq('email', user.email).select('*');
-    if (!error && data && data.length > 0) {
-      updatedRow = data[0];
-    } else if (!dbError) {
-      dbError = error;
+    // 2. Try updating by Email if ID match didn't yield updated row
+    if (!updatedRow && user.email) {
+      const { data, error } = await client.from('profiles').update(fullFields).eq('email', user.email).select('*');
+      if (!error && data && data.length > 0) {
+        updatedRow = data[0];
+      } else if (!dbError) {
+        dbError = error;
+      }
     }
-  }
 
-  // 3. Try upserting as last resort if update returned 0 rows
-  if (!updatedRow && (userId || user.email)) {
-    const upsertRecord = {
-      id: userId || ('usr_' + Date.now()),
-      ...(user.email ? { email: user.email } : {}),
-      ...fullFields
-    };
-    const { data, error } = await client.from('profiles').upsert(upsertRecord, { onConflict: 'id' }).select('*');
-    if (!error && data && data.length > 0) {
-      updatedRow = data[0];
-    } else if (!dbError) {
-      dbError = error;
+    // 3. Try upserting as last resort if update returned 0 rows
+    if (!updatedRow && (userId || user.email)) {
+      const upsertRecord = {
+        id: userId || ('usr_' + Date.now()),
+        ...(user.email ? { email: user.email } : {}),
+        ...fullFields
+      };
+      const { data, error } = await client.from('profiles').upsert(upsertRecord, { onConflict: 'id' }).select('*');
+      if (!error && data && data.length > 0) {
+        updatedRow = data[0];
+      } else if (!dbError) {
+        dbError = error;
+      }
     }
-  }
+  };
+
+  await Promise.race([
+    updateOperation(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('انتهت مهلة الاتصال بقاعدة البيانات السحابية (Connection Timeout 5s). يرجى التأكد من شبكة الإنترنت وإعادة المحاولة.')), 5000))
+  ]);
 
   // BANKING-GRADE STRICT VERIFICATION: Throw error if DB update returned no row!
   if (!updatedRow) {
