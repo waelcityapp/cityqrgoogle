@@ -1363,20 +1363,29 @@ export function saveUserProfileToStorage(user: UserProfile): void {
 }
 
 export async function updateUserProfileInSupabase(user: UserProfile): Promise<void> {
+  // 1. ALWAYS save to local storage immediately so edits are NEVER lost
+  saveUserProfileToStorage(user);
+
   const client = getSupabaseClient() as any;
   if (!client) {
-    throw new Error('Supabase client not initialized');
+    return;
   }
 
-  const { data: sessionData, error: sessionError } = await client.auth.getSession();
-  if (sessionError || !sessionData?.session?.user?.id) {
-    throw new Error('User is not authenticated or session is invalid.');
-  }
+  // 2. Get User ID safely without blocking forever if session fetch hangs on mobile
+  let userId = user.id || '';
+  try {
+    const sessionRes: any = await Promise.race([
+      client.auth.getSession(),
+      new Promise<any>((resolve) => setTimeout(() => resolve({ data: null }), 3000))
+    ]);
+    if (sessionRes?.data?.session?.user?.id) {
+      userId = sessionRes.data.session.user.id;
+    }
+  } catch (e) {}
 
-  const userId = sessionData.session.user.id;
-
+  // 3. Update Auth Metadata NON-BLOCKING (fire-and-forget in background)
   if (typeof client.auth.updateUser === 'function') {
-    await client.auth.updateUser({
+    client.auth.updateUser({
       data: {
         full_name: user.fullName || '',
         name: user.fullName || '',
@@ -1405,26 +1414,34 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
     updated_at: new Date().toISOString()
   };
 
-  // 1. Save local backup first
-  saveUserProfileToStorage(user);
+  // 4. Update profiles table with a 6-second max timeout so mobile network stalls do not freeze UI
+  const updateDbTask = async () => {
+    try {
+      if (userId) {
+        let { data: idData, error: idError } = await client.from('profiles').update(fullFields).eq('id', userId).select('*');
+        if (!idError && (!idData || idData.length === 0) && user.email) {
+          const { data: emailData, error: emailError } = await client.from('profiles').update(fullFields).eq('email', user.email).select('*');
+          if (emailError) idError = emailError;
+          if (emailData && emailData.length > 0) idData = emailData;
+        }
+        if (!idError && (!idData || idData.length === 0)) {
+          const upsertRecord = {
+            id: userId,
+            ...(user.email ? { email: user.email } : {}),
+            ...fullFields
+          };
+          await client.from('profiles').upsert(upsertRecord, { onConflict: 'id' }).catch(() => null);
+        }
+      } else if (user.email) {
+        await client.from('profiles').update(fullFields).eq('email', user.email).catch(() => null);
+      }
+    } catch (e) {
+      console.warn('Database update background error:', e);
+    }
+  };
 
-  // 2. Update DB by ID
-  let { data: idData, error: idError } = await client.from('profiles').update(fullFields).eq('id', userId).select('*');
-
-  // 3. Fallback: Update DB by Email if ID match returned no rows
-  if (!idError && (!idData || idData.length === 0) && user.email) {
-    const { data: emailData, error: emailError } = await client.from('profiles').update(fullFields).eq('email', user.email).select('*');
-    if (emailError) idError = emailError;
-    if (emailData && emailData.length > 0) idData = emailData;
-  }
-
-  // 4. Fallback: Upsert if record didn't exist yet
-  if (!idError && (!idData || idData.length === 0)) {
-    const upsertRecord = {
-      id: userId,
-      ...(user.email ? { email: user.email } : {}),
-      ...fullFields
-    };
-    await client.from('profiles').upsert(upsertRecord, { onConflict: 'id' }).catch(() => null);
-  }
+  await Promise.race([
+    updateDbTask(),
+    new Promise<void>((resolve) => setTimeout(resolve, 6000))
+  ]);
 }
