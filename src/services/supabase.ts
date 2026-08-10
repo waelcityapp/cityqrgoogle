@@ -1171,8 +1171,6 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
           sub_role: finalSubRole,
           sub_role_title: finalSubRoleTitle,
           phone_number: finalPhone,
-          whatsapp_number: finalWhatsapp,
-          bio: finalBio,
           updated_at: new Date().toISOString()
         };
         if (finalAvatar) syncPayloadFull.avatar_url = finalAvatar;
@@ -1230,8 +1228,6 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
           sub_role_title: defaultSubRoleTitle,
           avatar_url: finalAvatar,
           phone_number: finalPhone,
-          whatsapp_number: finalWhatsapp,
-          bio: finalBio,
           created_at: authCreatedAt,
           updated_at: new Date().toISOString()
         };
