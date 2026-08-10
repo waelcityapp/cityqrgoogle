@@ -312,16 +312,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateUserProfile = async (updates: Partial<UserProfile>) => {
     if (!currentUser) {
-      throw new Error('No active user session');
+      throw new Error('لا توجد جلسة مستخدم نشطة / No active user session');
     }
-    const updated: UserProfile = { ...currentUser, ...updates };
-    setCurrentUser(updated);
-    saveUserProfileToStorage(updated);
-    try {
-      localStorage.setItem('cityqr_last_profile_update', Date.now().toString());
-    } catch (e) {}
+    const targetPayload: UserProfile = { ...currentUser, ...updates };
 
-    await updateUserProfileInSupabase(updated);
+    // STRICT BANKING INTEGRITY: Await DB confirmation first!
+    const confirmedProfile = await updateUserProfileInSupabase(targetPayload);
+    
+    // Mutation ONLY happens after DB confirms update success
+    setCurrentUser(confirmedProfile);
+    saveUserProfileToStorage(confirmedProfile);
   };
 
   // Actions

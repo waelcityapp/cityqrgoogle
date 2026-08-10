@@ -1258,29 +1258,21 @@ export function saveUserProfileToStorage(user: UserProfile): void {
   }
 }
 
-export async function updateUserProfileInSupabase(user: UserProfile): Promise<void> {
-  // 1. ALWAYS save to local storage immediately so edits are NEVER lost
-  saveUserProfileToStorage(user);
-
+export async function updateUserProfileInSupabase(user: UserProfile): Promise<UserProfile> {
   const client = getSupabaseClient() as any;
   if (!client) {
-    return;
+    throw new Error('لم يتم تكوين الاتصال بقاعدة بيانات Supabase / Supabase client not initialized');
   }
 
-  // 2. Get User ID safely without blocking forever if session fetch hangs on mobile
   let userId = user.id || '';
   try {
-    const sessionRes: any = await Promise.race([
-      client.auth.getSession(),
-      new Promise<any>((resolve) => setTimeout(() => resolve({ data: null }), 3000))
-    ]);
-    if (sessionRes?.data?.session?.user?.id) {
-      userId = sessionRes.data.session.user.id;
+    const { data: sessionData } = await client.auth.getSession();
+    if (sessionData?.session?.user?.id) {
+      userId = sessionData.session.user.id;
     }
   } catch (e) {}
 
-  // 3. Update Auth Metadata NON-BLOCKING (fire-and-forget in background)
-  // Note: bio and whatsapp_number are stored in auth metadata only (not in profiles table columns)
+  // Update Auth Metadata in background
   if (typeof client.auth.updateUser === 'function') {
     client.auth.updateUser({
       data: {
@@ -1299,8 +1291,6 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
     }).catch((err: any) => console.warn('Auth updateUser metadata warning:', err));
   }
 
-  // Only include columns that EXIST in the profiles table
-  // bio and whatsapp_number do NOT exist in the DB - removed to prevent silent 0-row updates
   const fullFields = {
     full_name: user.fullName || '',
     role: user.role || 'user',
@@ -1311,34 +1301,62 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
     updated_at: new Date().toISOString()
   };
 
-  // 4. Update profiles table with a 6-second max timeout so mobile network stalls do not freeze UI
-  const updateDbTask = async () => {
-    try {
-      if (userId) {
-        let { data: idData, error: idError } = await client.from('profiles').update(fullFields).eq('id', userId).select('*');
-        if (!idError && (!idData || idData.length === 0) && user.email) {
-          const { data: emailData, error: emailError } = await client.from('profiles').update(fullFields).eq('email', user.email).select('*');
-          if (emailError) idError = emailError;
-          if (emailData && emailData.length > 0) idData = emailData;
-        }
-        if (!idError && (!idData || idData.length === 0)) {
-          const upsertRecord = {
-            id: userId,
-            ...(user.email ? { email: user.email } : {}),
-            ...fullFields
-          };
-          await client.from('profiles').upsert(upsertRecord, { onConflict: 'id' }).catch(() => null);
-        }
-      } else if (user.email) {
-        await client.from('profiles').update(fullFields).eq('email', user.email).catch(() => null);
-      }
-    } catch (e) {
-      console.warn('Database update background error:', e);
+  let updatedRow: any = null;
+  let dbError: any = null;
+
+  // 1. Try updating by ID first
+  if (userId) {
+    const { data, error } = await client.from('profiles').update(fullFields).eq('id', userId).select('*');
+    if (!error && data && data.length > 0) {
+      updatedRow = data[0];
+    } else {
+      dbError = error;
     }
+  }
+
+  // 2. Try updating by Email if ID match didn't yield updated row
+  if (!updatedRow && user.email) {
+    const { data, error } = await client.from('profiles').update(fullFields).eq('email', user.email).select('*');
+    if (!error && data && data.length > 0) {
+      updatedRow = data[0];
+    } else if (!dbError) {
+      dbError = error;
+    }
+  }
+
+  // 3. Try upserting as last resort if update returned 0 rows
+  if (!updatedRow && (userId || user.email)) {
+    const upsertRecord = {
+      id: userId || ('usr_' + Date.now()),
+      ...(user.email ? { email: user.email } : {}),
+      ...fullFields
+    };
+    const { data, error } = await client.from('profiles').upsert(upsertRecord, { onConflict: 'id' }).select('*');
+    if (!error && data && data.length > 0) {
+      updatedRow = data[0];
+    } else if (!dbError) {
+      dbError = error;
+    }
+  }
+
+  // BANKING-GRADE STRICT VERIFICATION: Throw error if DB update returned no row!
+  if (!updatedRow) {
+    const errDetail = dbError?.message || 'لم يقم السيرفر بتحديث أي سجلات في جدول profiles (RLS constraint or missing permission)';
+    throw new Error(`تعذر حفظ التعديلات في قاعدة بيانات Supabase الحقيقية: ${errDetail}`);
+  }
+
+  const confirmedProfile: UserProfile = {
+    ...user,
+    id: updatedRow.id || user.id,
+    email: updatedRow.email || user.email,
+    fullName: updatedRow.full_name || user.fullName,
+    role: updatedRow.role || user.role,
+    subRole: updatedRow.sub_role || user.subRole,
+    subRoleTitle: updatedRow.sub_role_title || user.subRoleTitle,
+    avatarUrl: updatedRow.avatar_url || user.avatarUrl,
+    phoneNumber: updatedRow.phone_number || user.phoneNumber
   };
 
-  await Promise.race([
-    updateDbTask(),
-    new Promise<void>((resolve) => setTimeout(resolve, 6000))
-  ]);
+  saveUserProfileToStorage(confirmedProfile);
+  return confirmedProfile;
 }
