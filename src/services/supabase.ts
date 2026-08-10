@@ -1384,6 +1384,7 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
   } catch (e) {}
 
   // 3. Update Auth Metadata NON-BLOCKING (fire-and-forget in background)
+  // Note: bio and whatsapp_number are stored in auth metadata only (not in profiles table columns)
   if (typeof client.auth.updateUser === 'function') {
     client.auth.updateUser({
       data: {
@@ -1402,6 +1403,8 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
     }).catch((err: any) => console.warn('Auth updateUser metadata warning:', err));
   }
 
+  // Only include columns that EXIST in the profiles table
+  // bio and whatsapp_number do NOT exist in the DB - removed to prevent silent 0-row updates
   const fullFields = {
     full_name: user.fullName || '',
     role: user.role || 'user',
@@ -1409,8 +1412,6 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<vo
     sub_role_title: user.subRoleTitle || '',
     avatar_url: user.avatarUrl || '',
     phone_number: user.phoneNumber || '',
-    whatsapp_number: user.whatsappNumber || user.phoneNumber || '',
-    bio: user.bio || '',
     updated_at: new Date().toISOString()
   };
 
