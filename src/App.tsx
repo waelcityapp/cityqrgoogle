@@ -549,195 +549,37 @@ function CityQRAppContent() {
 
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 space-y-3.5">
         
-        {/* Custom CityQR Header Bar (Sticky on scroll) */}
-        <header className="sticky top-2 z-40 min-h-[4.5rem] sm:min-h-[5rem] border border-zinc-200 dark:border-[#D4AF37]/30 flex flex-wrap lg:flex-nowrap items-center justify-between px-4 sm:px-6 lg:px-8 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl gap-3 py-2.5 sm:py-3 shadow-lg dark:shadow-2xl dark:shadow-black/70 transition-all duration-200">
+        {/* Custom CityQR Header Bar (Sticky on scroll as requested) */}
+        <header className="sticky top-2 z-40 min-h-[5rem] sm:min-h-[5.5rem] border border-zinc-200 dark:border-[#D4AF37]/25 flex flex-col sm:flex-row items-center justify-between px-5 sm:px-8 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg rounded-2xl sm:rounded-3xl gap-3.5 py-3 sm:py-3.5 shadow-md dark:shadow-xl dark:shadow-black/60 transition-all duration-200">
           
-          {/* Brand Logo & Version Badge */}
-          <div className="flex items-center justify-between w-full lg:w-auto gap-3 sm:gap-5 shrink-0">
-            <div className="flex items-center gap-3 relative py-0.5" dir="ltr">
-              <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-                <div className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.5rem] font-black tracking-tighter leading-none flex items-center drop-shadow-md py-0.5">
+          {/* Logo Brand with Bold Typography theme elements and Version badge */}
+          <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto gap-4 sm:gap-6 shrink-0">
+            <div className="flex items-center gap-3 relative py-1" dir="ltr">
+              <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                <div className="text-4xl sm:text-5xl md:text-6xl lg:text-[4.25rem] font-black tracking-tighter leading-none flex items-center drop-shadow-md py-0.5">
                   <span className="text-[#8B0000] dark:text-red-500 drop-shadow-[0_2px_15px_rgba(139,0,0,0.4)]">City</span>
                   <span className="text-[#D4AF37] bg-gradient-to-r from-[#D4AF37] via-amber-300 to-[#D4AF37] bg-clip-text text-transparent drop-shadow-[0_2px_15px_rgba(212,175,55,0.3)]">QR</span>
                 </div>
                 
-                {/* Glowing Version Pill Badge */}
-                <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 bg-gradient-to-r from-[#D4AF37]/15 via-amber-500/15 to-[#D4AF37]/15 dark:from-[#D4AF37]/20 dark:via-amber-500/20 dark:to-[#D4AF37]/20 text-[#D4AF37] dark:text-amber-300 text-[10px] sm:text-xs font-black rounded-full border border-[#D4AF37]/40 shadow-[0_0_15px_rgba(212,175,55,0.25)] tracking-widest uppercase flex items-center gap-1.5 self-center animate-pulse">
+                {/* Glowing Version Pill Badge inline */}
+                <span className="px-3 py-1 sm:px-3.5 sm:py-1 bg-gradient-to-r from-[#D4AF37]/15 via-amber-500/15 to-[#D4AF37]/15 dark:from-[#D4AF37]/20 dark:via-amber-500/20 dark:to-[#D4AF37]/20 text-[#D4AF37] dark:text-amber-300 text-[11px] sm:text-xs font-black rounded-full border border-[#D4AF37]/40 shadow-[0_0_15px_rgba(212,175,55,0.25)] tracking-widest uppercase flex items-center gap-1.5 self-center animate-pulse">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
                   V1.0 BETA
                 </span>
               </div>
 
-              {/* Gentle solar glow under CityQR */}
-              <div className="absolute -bottom-2 left-4 w-40 h-6 bg-gradient-to-t from-amber-400/35 via-[#D4AF37]/30 to-transparent rounded-full blur-xl pointer-events-none animate-pulse" />
+              {/* ☀️ Gentle solar glow under the app name CityQR */}
+              <div className="absolute -bottom-2 left-4 w-48 h-8 bg-gradient-to-t from-amber-400/35 via-[#D4AF37]/30 to-transparent rounded-full blur-xl pointer-events-none animate-pulse" />
             </div>
 
-            {/* Mobile Action Shortcuts (Visible on small screens) */}
-            <div className="flex lg:hidden items-center gap-1.5 shrink-0">
+            {/* 4 Header Action Buttons + Profile Badge */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 py-0.5">
+              
+              {/* Logged-In User Badge in Header (Always visible) */}
               {currentUser ? (
                 <button
                   onClick={() => setActiveTab('account')}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37]/20 via-amber-500/10 to-[#8B0000]/20 transition cursor-pointer shadow-sm shrink-0"
-                  title={language === 'ar' ? 'عرض الملف الشخصي والتعديل عليه' : 'View & Edit Profile'}
-                >
-                  <div className="relative">
-                    <img
-                      src={currentUser.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser.email || currentUser.fullName || 'user')}`}
-                      alt={currentUser.fullName || 'User Avatar'}
-                      className="w-7 h-7 rounded-full border-2 border-[#D4AF37] object-cover bg-amber-500/10"
-                      referrerPolicy="no-referrer"
-                    />
-                    <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-black" />
-                  </div>
-                  <span className="text-xs font-black text-black dark:text-white max-w-[80px] truncate sm:hidden">
-                    {currentUser.fullName?.split(' ')[0] || currentUser.email.split('@')[0]}
-                  </span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => { setAuthInitialMode('signin'); setActiveTab('account'); }}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-[#D4AF37]/60 bg-[#D4AF37]/15 hover:bg-[#D4AF37]/25 text-[#D4AF37] text-xs font-bold transition cursor-pointer shrink-0"
-                >
-                  <User className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>{language === 'ar' ? 'دخول' : 'Sign In'}</span>
-                </button>
-              )}
-
-              {/* Mobile Notifications Bell */}
-              <button
-                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                className="w-8 h-8 rounded-xl border border-[#8B0000]/40 bg-[#8B0000]/10 hover:bg-[#8B0000]/20 text-[#8B0000] dark:text-red-400 transition duration-200 cursor-pointer shadow-sm relative flex items-center justify-center"
-                title={language === 'ar' ? 'الإشعارات والتنبيهات' : 'Notifications'}
-              >
-                <Bell className="w-3.5 h-3.5 text-[#8B0000] dark:text-red-400 animate-bounce" />
-                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 shadow">{mockNotifications.length}</span>
-              </button>
-
-              {/* Mobile Quick Menu Toggle */}
-              <button
-                onClick={() => setIsQuickMenuOpen(!isQuickMenuOpen)}
-                className="w-8 h-8 rounded-xl border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-amber-500/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] transition duration-200 cursor-pointer shadow-sm flex items-center justify-center"
-                title={language === 'ar' ? 'القائمة السريعة' : 'Quick Menu'}
-              >
-                <Menu className="w-3.5 h-3.5 text-[#D4AF37]" />
-              </button>
-            </div>
-          </div>
-
-          {/* Combined Controls & Main Action Buttons Bar */}
-          <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto max-w-full pb-1 lg:pb-0 scrollbar-none flex-nowrap justify-start lg:justify-end w-full lg:w-auto px-0.5">
-            
-            {/* Install App Button */}
-            <button
-              onClick={() => setIsInstallModalOpen(true)}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#D4AF37]/40 bg-[#D4AF37]/10 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/20 hover:text-white transition cursor-pointer font-bold shadow-sm shrink-0 whitespace-nowrap"
-              title={language === 'ar' ? 'ثبت التطبيق على هاتفك' : 'Install app on your phone'}
-            >
-              <Smartphone className="w-3.5 h-3.5 text-[#D4AF37] animate-pulse" />
-              <span>{language === 'ar' ? 'ثبت التطبيق' : 'Install App'}</span>
-            </button>
-
-            {/* Connection Status Pill */}
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border shrink-0 whitespace-nowrap ${
-              isOnline 
-                ? 'bg-green-500/5 dark:bg-green-500/10 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/20' 
-                : 'bg-red-500/5 dark:bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/20'
-            }`}>
-              <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-              <span>{isOnline ? t.onlineMode : t.offlineMode}</span>
-            </div>
-
-            {/* International Country & Currency Selector Pill */}
-            <button
-              onClick={() => setIsCountryModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-[#8B0000]/10 dark:from-[#D4AF37]/15 dark:to-[#8B0000]/15 text-xs text-black dark:text-white hover:border-[#D4AF37] hover:scale-105 transition duration-150 cursor-pointer font-bold shadow-sm shrink-0 whitespace-nowrap"
-              title={language === 'ar' ? 'تغيير الدولة والعملة' : 'Change Country & Currency'}
-            >
-              <span className="text-base leading-none">{userCountry?.flag || '🇪🇬'}</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#D4AF37] text-black font-extrabold">{userCountry?.currencyCode || 'EGP'}</span>
-            </button>
-
-            {/* Language Switcher */}
-            <button
-              id="lang-toggle-btn"
-              onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-xs text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900 transition cursor-pointer font-semibold shadow-sm shrink-0 whitespace-nowrap"
-              title={language === 'ar' ? 'English' : 'تغيير اللغة للعربية'}
-            >
-              <Globe className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>{language === 'ar' ? 'EN' : 'AR'}</span>
-            </button>
-
-            {/* Theme Toggle Group */}
-            <div className="flex rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 p-0.5 shrink-0 whitespace-nowrap">
-              {(['dark', 'light', 'system'] as const).map((tMode) => (
-                <button
-                  key={tMode}
-                  onClick={() => setTheme(tMode)}
-                  className={`p-1.5 rounded-lg transition cursor-pointer ${
-                    theme === tMode 
-                      ? 'bg-[#8B0000] text-white shadow-sm' 
-                      : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
-                  }`}
-                  title={tMode === 'dark' ? t.themeDark : tMode === 'light' ? t.themeLight : t.themeSystem}
-                >
-                  {tMode === 'dark' && <Moon className="w-3.5 h-3.5" />}
-                  {tMode === 'light' && <Sun className="w-3.5 h-3.5" />}
-                  {tMode === 'system' && <Tv className="w-3.5 h-3.5" />}
-                </button>
-              ))}
-            </div>
-
-            {/* Desktop Action Icons Group (Share, Mail, Bell, Quick Menu) */}
-            <div className="hidden lg:flex items-center gap-1.5 shrink-0 border-r dark:border-l border-zinc-200 dark:border-zinc-800 pr-2 pl-2">
-              {/* Share App */}
-              <button
-                onClick={() => setIsShareModalOpen(true)}
-                className="w-9 h-9 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 hover:bg-[#D4AF37]/15 dark:hover:bg-[#D4AF37]/25 text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer shadow-sm shrink-0 flex items-center justify-center group"
-                title={language === 'ar' ? 'مشاركة التطبيق عبر وسائل التواصل الاجتماعي' : 'Share app via social media'}
-              >
-                <Share2 className="w-4 h-4 text-[#D4AF37] group-hover:scale-110 transition" />
-              </button>
-
-              {/* Contact App */}
-              <button
-                onClick={handleOpenAdminMessage}
-                className="w-9 h-9 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37]/20 via-amber-500/20 to-[#D4AF37]/20 hover:from-[#D4AF37]/30 hover:to-amber-500/30 text-amber-300 transition duration-300 cursor-pointer shadow-[0_0_12px_rgba(212,175,55,0.25)] shrink-0 flex items-center justify-center animate-pulse group"
-                title={language === 'ar' ? 'مراسلة التطبيق (استفسار / مقترح / شكوى)' : 'Contact App (Inquiry / Suggestion / Complaint)'}
-              >
-                <Mail className="w-4 h-4 text-[#D4AF37] group-hover:scale-110 transition" />
-              </button>
-
-              {/* Notifications Bell */}
-              <div className="relative">
-                <button
-                  onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                  className="w-9 h-9 rounded-xl border border-[#8B0000]/40 bg-[#8B0000]/10 hover:bg-[#8B0000]/20 text-[#8B0000] dark:text-red-400 transition duration-200 cursor-pointer shadow-sm shrink-0 relative flex items-center justify-center group"
-                  title={language === 'ar' ? 'الإشعارات والتنبيهات' : 'Notifications'}
-                >
-                  <Bell className="w-4 h-4 text-[#8B0000] dark:text-red-400 animate-bounce" />
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 shadow">{mockNotifications.length}</span>
-                </button>
-              </div>
-
-              {/* Quick Menu */}
-              <div className="relative">
-                <button
-                  onClick={() => setIsQuickMenuOpen(!isQuickMenuOpen)}
-                  className="w-9 h-9 rounded-xl border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-amber-500/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] transition duration-200 cursor-pointer shadow-sm shrink-0 flex items-center justify-center group"
-                  title={language === 'ar' ? 'القائمة السريعة: الدولة والعملة والواجهة' : 'Quick Menu: Country, Currency & Interface'}
-                >
-                  <Menu className="w-4 h-4 text-[#D4AF37] group-hover:scale-110 transition" />
-                </button>
-              </div>
-            </div>
-
-            {/* Desktop User Profile Badge (Single Instance) */}
-            <div className="hidden lg:block shrink-0">
-              {currentUser ? (
-                <button
-                  onClick={() => setActiveTab('account')}
-                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-[#D4AF37]/60 bg-gradient-to-r from-[#D4AF37]/15 via-amber-500/10 to-[#8B0000]/15 hover:border-[#D4AF37] hover:scale-105 transition cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37]/20 via-amber-500/10 to-[#8B0000]/20 hover:border-[#D4AF37] transition cursor-pointer shadow-md shrink-0"
                   title={language === 'ar' ? 'عرض الملف الشخصي والتعديل عليه' : 'View & Edit Profile'}
                 >
                   <div className="relative">
@@ -750,7 +592,7 @@ function CityQRAppContent() {
                     <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-black" />
                   </div>
                   <div className="text-right flex flex-col items-start leading-none gap-0.5">
-                    <span className="text-xs font-black text-black dark:text-white max-w-[100px] sm:max-w-[130px] truncate">
+                    <span className="text-xs font-black text-black dark:text-white max-w-[90px] sm:max-w-[130px] truncate">
                       {currentUser.fullName || currentUser.email.split('@')[0]}
                     </span>
                     <span className="text-[9px] font-extrabold text-[#D4AF37] font-mono">
@@ -763,12 +605,155 @@ function CityQRAppContent() {
               ) : (
                 <button
                   onClick={() => { setAuthInitialMode('signin'); setActiveTab('account'); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#D4AF37]/50 bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] text-xs font-bold transition cursor-pointer shrink-0 whitespace-nowrap"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-[#D4AF37]/60 bg-[#D4AF37]/15 hover:bg-[#D4AF37]/25 text-[#D4AF37] text-xs font-bold transition cursor-pointer shrink-0"
                 >
-                  <User className="w-4 h-4 text-[#D4AF37]" />
-                  <span>{language === 'ar' ? 'تسجيل الدخول' : 'Sign In'}</span>
+                  <User className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>{language === 'ar' ? 'دخول' : 'Sign In'}</span>
                 </button>
               )}
+
+              {/* 1. Share App */}
+              <button
+                onClick={() => setIsShareModalOpen(true)}
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 hover:bg-[#D4AF37]/15 dark:hover:bg-[#D4AF37]/25 text-[#D4AF37] hover:text-white transition duration-200 cursor-pointer shadow-sm shrink-0 flex items-center justify-center group"
+                title={language === 'ar' ? 'مشاركة التطبيق عبر وسائل التواصل الاجتماعي' : 'Share app via social media'}
+              >
+                <Share2 className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
+              </button>
+
+              {/* 2. Contact App */}
+              <button
+                onClick={handleOpenAdminMessage}
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37] bg-gradient-to-r from-[#D4AF37]/20 via-amber-500/20 to-[#D4AF37]/20 hover:from-[#D4AF37]/30 hover:to-amber-500/30 text-amber-300 dark:text-amber-300 transition duration-300 cursor-pointer shadow-[0_0_15px_rgba(212,175,55,0.25)] shrink-0 flex items-center justify-center animate-pulse group"
+                title={language === 'ar' ? 'مراسلة التطبيق (استفسار / مقترح / شكوى)' : 'Contact App (Inquiry / Suggestion / Complaint)'}
+              >
+                <Mail className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
+              </button>
+
+              {/* 3. Notifications Bell */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-[#8B0000]/40 bg-[#8B0000]/10 hover:bg-[#8B0000]/20 text-[#8B0000] dark:text-red-400 transition duration-200 cursor-pointer shadow-sm shrink-0 relative flex items-center justify-center group"
+                  title={language === 'ar' ? 'الإشعارات والتنبيهات' : 'Notifications'}
+                >
+                  <Bell className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-[#8B0000] dark:text-red-400 animate-bounce" />
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900 shadow">{mockNotifications.length}</span>
+                </button>
+              </div>
+
+              {/* 4. Menu Button */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsQuickMenuOpen(!isQuickMenuOpen)}
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-amber-500/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] transition duration-200 cursor-pointer shadow-sm shrink-0 flex items-center justify-center group"
+                  title={language === 'ar' ? 'القائمة السريعة: الدولة والعملة والواجهة' : 'Quick Menu: Country, Currency & Interface'}
+                >
+                  <Menu className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 text-[#D4AF37] group-hover:scale-110 transition" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Controls Panel - Horizontally scrollable left & right */}
+          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto max-w-full pb-1 sm:pb-0 scrollbar-none flex-nowrap justify-start sm:justify-end w-full sm:w-auto px-1">
+            
+            {/* Logged-In User Profile Quick Badge in Header */}
+            {currentUser ? (
+              <button
+                onClick={() => setActiveTab('account')}
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-[#D4AF37]/60 bg-gradient-to-r from-[#D4AF37]/15 via-amber-500/10 to-[#8B0000]/15 hover:border-[#D4AF37] hover:scale-105 transition cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
+                title={language === 'ar' ? 'عرض الملف الشخصي والتعديل عليه' : 'View & Edit Profile'}
+              >
+                <div className="relative">
+                  <img
+                    src={currentUser.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser.email || currentUser.fullName || 'user')}`}
+                    alt={currentUser.fullName || 'User Avatar'}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-[#D4AF37] object-cover bg-amber-500/10 shadow-sm"
+                    referrerPolicy="no-referrer"
+                  />
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-black" />
+                </div>
+                <div className="text-right flex flex-col items-start leading-none gap-0.5">
+                  <span className="text-xs font-black text-black dark:text-white max-w-[100px] sm:max-w-[130px] truncate">
+                    {currentUser.fullName || currentUser.email.split('@')[0]}
+                  </span>
+                  <span className="text-[9px] font-extrabold text-[#D4AF37] font-mono">
+                    {currentUser.role === 'merchant' || currentUser.role === 'admin'
+                      ? (language === 'ar' ? 'تاجر / شريك' : 'Merchant')
+                      : (currentUser.subRoleTitle || (language === 'ar' ? 'عضو مميز' : 'Member'))}
+                  </span>
+                </div>
+              </button>
+            ) : (
+              <button
+                onClick={() => { setAuthInitialMode('signin'); setActiveTab('account'); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#D4AF37]/50 bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] text-xs font-bold transition cursor-pointer shrink-0 whitespace-nowrap"
+              >
+                <User className="w-4 h-4 text-[#D4AF37]" />
+                <span>{language === 'ar' ? 'تسجيل الدخول' : 'Sign In'}</span>
+              </button>
+            )}
+
+            {/* Install App Button */}
+            <button
+              onClick={() => setIsInstallModalOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/20 hover:text-white transition cursor-pointer font-bold shadow-sm shrink-0 whitespace-nowrap"
+              title={language === 'ar' ? 'ثبت التطبيق على هاتفك' : 'Install app on your phone'}
+            >
+              <Smartphone className="w-4 h-4 text-[#D4AF37] animate-pulse" />
+              <span>{language === 'ar' ? 'ثبت التطبيق' : 'Install App'}</span>
+            </button>
+
+            {/* Connection pills */}
+            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border shrink-0 whitespace-nowrap ${
+              isOnline 
+                ? 'bg-green-500/5 dark:bg-green-500/10 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/20' 
+                : 'bg-red-500/5 dark:bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/20'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+              <span>{isOnline ? t.onlineMode : t.offlineMode}</span>
+            </div>
+
+            {/* International Country & Currency Selector Pill (Flag & Currency only) */}
+            <button
+              onClick={() => setIsCountryModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4AF37]/50 bg-gradient-to-r from-[#D4AF37]/10 to-[#8B0000]/10 dark:from-[#D4AF37]/15 dark:to-[#8B0000]/15 text-xs text-black dark:text-white hover:border-[#D4AF37] hover:scale-105 transition duration-150 cursor-pointer font-bold shadow-sm shrink-0 whitespace-nowrap"
+              title={language === 'ar' ? 'تغيير الدولة والعملة' : 'Change Country & Currency'}
+            >
+              <span className="text-base leading-none">{userCountry?.flag || '🇪🇬'}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#D4AF37] text-black font-extrabold">{userCountry?.currencyCode || 'EGP'}</span>
+            </button>
+
+            {/* Language switch */}
+            <button
+              id="lang-toggle-btn"
+              onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-xs text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-900 transition cursor-pointer font-semibold shadow-sm dark:shadow-none shrink-0 whitespace-nowrap"
+              title={language === 'ar' ? 'English' : 'تغيير اللغة للعربية'}
+            >
+              <Globe className="w-4 h-4 text-[#D4AF37]" />
+              <span>{language === 'ar' ? 'EN' : 'AR'}</span>
+            </button>
+
+            {/* Theme Toggle Button List (Theme switcher) */}
+            <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 p-0.5 shrink-0 whitespace-nowrap">
+              {(['dark', 'light', 'system'] as const).map((tMode) => (
+                <button
+                  key={tMode}
+                  onClick={() => setTheme(tMode)}
+                  className={`p-1.5 rounded-md transition cursor-pointer ${
+                    theme === tMode 
+                      ? 'bg-[#8B0000] text-white shadow-sm' 
+                      : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                  }`}
+                  title={tMode === 'dark' ? t.themeDark : tMode === 'light' ? t.themeLight : t.themeSystem}
+                >
+                  {tMode === 'dark' && <Moon className="w-4 h-4" />}
+                  {tMode === 'light' && <Sun className="w-4 h-4" />}
+                  {tMode === 'system' && <Tv className="w-4 h-4" />}
+                </button>
+              ))}
             </div>
 
           </div>
