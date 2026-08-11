@@ -19,6 +19,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- 2. تفعيل الحماية (Row Level Security) على جدول profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+-- Ensure existing installations have every editable profile field.
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone_number TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS bio TEXT;
+
 -- 3. إضافة سياسات الأمان (Policies) لتمكين القراءة والإضافة والتعديل للمستخدمين
 -- السماح لجميع المستخدمين بقراءة الملفات الشخصية
 CREATE POLICY "Allow public read access to profiles"

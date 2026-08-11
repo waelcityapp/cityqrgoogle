@@ -48,7 +48,7 @@ interface AppContextType {
   registerUser: (email: string, password: string, fullName: string, role: 'user' | 'merchant', subRole?: string, subRoleTitle?: string) => Promise<{ user: UserProfile; error?: string }>;
   logoutUser: () => Promise<void>;
   switchUserRole: (role: 'user' | 'merchant') => void;
-  updateUserProfile: (updates: Partial<UserProfile>) => void;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -185,30 +185,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // 5. User Authentication State & Supabase Integration
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => getStoredUserProfile());
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() =>
+    isSupabaseConfigured ? null : getStoredUserProfile()
+  );
 
   // Flag to prevent onAuthStateChange from overwriting profile during/after login
   // When loginUser runs, it sets this to true. syncSessionUser checks it and skips
   // if a login is in progress, preventing race conditions on mobile.
   const loginInProgressRef = React.useRef(false);
+  // Prevent a slow session refresh from replacing a profile that was just saved.
+  const profileMutationVersionRef = React.useRef(0);
 
   // Listen for Supabase OAuth / Session changes (e.g. after Google Sign-In redirect)
   useEffect(() => {
     const client = getSupabaseClient();
 
-    const storedUser = getStoredUserProfile();
-    if (storedUser && !currentUser) {
-      setCurrentUser(storedUser);
-    }
-
     if (client) {
       let isSyncing = false;
       const syncSessionUser = async (providedSession?: any) => {
-        if (isSyncing) return;
+        if (isSyncing || loginInProgressRef.current) return;
+        const mutationVersionAtStart = profileMutationVersionRef.current;
         isSyncing = true;
         try {
           const user = await getCurrentUserFromSupabaseSession(providedSession);
-          if (user) {
+          if (user && mutationVersionAtStart === profileMutationVersionRef.current) {
             setCurrentUser(user);
             saveUserProfileToStorage(user);
             if (typeof window !== 'undefined' && (window.location.hash.includes('access_token') || window.location.search.includes('code='))) {
@@ -223,22 +223,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       // Handle auth state changes cleanly
-      const { data: authListener } = client.auth.onAuthStateChange(async (event, session) => {
+      const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || (event === 'INITIAL_SESSION' && session)) {
-          await syncSessionUser(session);
+          // Supabase warns against awaiting another auth/database call inside this
+          // callback because some mobile browsers can keep the auth lock open.
+          window.setTimeout(() => {
+            void syncSessionUser(session);
+          }, 0);
         } else if (event === 'SIGNED_OUT') {
           setCurrentUser(null);
         }
       });
 
-      // Single check on mount to ensure session user is synced from DB
-      syncSessionUser();
-
       // Listen for local storage changes across tabs or windows
       const handleStorageChange = async (e: StorageEvent) => {
         if (e.key === 'cityqr_local_user' || e.key === 'cityqr_current_user' || (e.key && e.key.includes('supabase.auth.token'))) {
-          const user = await getCurrentUserFromSupabaseSession() || getStoredUserProfile();
-          if (user) setCurrentUser(user);
+          await syncSessionUser();
         }
       };
       window.addEventListener('storage', handleStorageChange);
@@ -293,7 +293,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       setCurrentUser(null);
       await signOutFromSupabase();
-      localStorage.clear(); // Complete purge of stale cache on phone/browser
     } catch(e) { 
       console.warn('Signout err', e);
     } finally {
@@ -303,11 +302,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const switchUserRole = (newRole: 'user' | 'merchant') => {
-    if (currentUser) {
-      const updated: UserProfile = { ...currentUser, role: newRole };
-      setCurrentUser(updated);
-      saveUserProfileToStorage(updated);
-    }
+    // Account roles are server-authoritative and cannot be changed in the browser.
+    void newRole;
   };
 
   const updateUserProfile = async (updates: Partial<UserProfile>) => {
@@ -315,6 +311,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       throw new Error('لا توجد جلسة مستخدم نشطة / No active user session');
     }
     const targetPayload: UserProfile = { ...currentUser, ...updates };
+    profileMutationVersionRef.current += 1;
 
     // STRICT BANKING INTEGRITY: Await DB confirmation first!
     const confirmedProfile = await updateUserProfileInSupabase(targetPayload);

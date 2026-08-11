@@ -203,29 +203,33 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
   const handleSaveProfile = async (e?: React.FormEvent | React.MouseEvent) => {
     if (e) e.preventDefault();
     if (isSavingProfile) return;
-    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
     setIsSavingProfile(true);
     setProfileErrorMsg(null);
     setProfileSuccessMsg(null);
+    let saveWatchdogId: number | undefined;
 
     try {
       const subList = editRole === 'merchant' ? MERCHANT_SUB_ROLES : USER_SUB_ROLES;
       const matchedSub = subList.find(s => s.id === editSubRole) || subList[0];
       const finalSubTitle = editSubRoleTitle || (language === 'ar' ? matchedSub?.titleAr : matchedSub?.titleEn);
 
-      await updateUserProfile({
-        fullName: editFullName.trim(),
-        avatarUrl: editAvatarUrl.trim(),
-        phoneNumber: editPhoneNumber.trim(),
-        whatsappNumber: editWhatsapp.trim(),
-        bio: editBio.trim(),
-        role: editRole,
-        subRole: editSubRole,
-        subRoleTitle: finalSubTitle,
-        contactPreferences: editContactPreferences
-      });
+      await Promise.race([
+        updateUserProfile({
+          fullName: editFullName.trim(),
+          avatarUrl: editAvatarUrl.trim(),
+          phoneNumber: editPhoneNumber.trim(),
+          whatsappNumber: editWhatsapp.trim(),
+          bio: editBio.trim(),
+          subRole: editSubRole,
+          subRoleTitle: finalSubTitle,
+          contactPreferences: editContactPreferences
+        }),
+        new Promise<never>((_, reject) => {
+          saveWatchdogId = window.setTimeout(() => {
+            reject(new Error('MOBILE_SAVE_WATCHDOG: Saving exceeded 12 seconds. Please sign out and sign in again.'));
+          }, 12000);
+        })
+      ]);
 
       setIsEditingProfile(false);
       setProfileSuccessMsg(language === 'ar' ? '🎉 تم حفظ وتحديث بيانات الملف الشخصي بنجاح!' : '🎉 Profile updated and saved successfully!');
@@ -241,6 +245,9 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
       setProfileErrorMsg(errMsg);
       setTimeout(() => setProfileErrorMsg(null), 8000);
     } finally {
+      if (saveWatchdogId !== undefined) {
+        window.clearTimeout(saveWatchdogId);
+      }
       setIsSavingProfile(false);
     }
   };
@@ -579,14 +586,14 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
             </div>
 
             {profileSuccessMsg && (
-              <div className="p-5 rounded-2xl bg-emerald-500/20 border-2 border-emerald-500/50 text-emerald-300 text-sm font-black flex items-center gap-3 shadow-[0_0_20px_rgba(16,185,129,0.2)] animate-fade-in">
+              <div role="status" aria-live="polite" className="p-5 rounded-2xl bg-emerald-500/20 border-2 border-emerald-500/50 text-emerald-300 text-sm font-black flex items-center gap-3 shadow-[0_0_20px_rgba(16,185,129,0.2)] animate-fade-in">
                 <CheckCircle2 className="w-6 h-6 shrink-0" />
                 <span>{profileSuccessMsg}</span>
               </div>
             )}
 
-            {profileErrorMsg && (
-              <div className="p-5 rounded-2xl bg-red-500/20 border-2 border-red-500/50 text-red-300 text-sm font-black flex items-center gap-3 shadow-[0_0_20px_rgba(239,68,68,0.2)] animate-fade-in">
+            {profileErrorMsg && !isEditingProfile && (
+              <div role="alert" aria-live="assertive" className="p-5 rounded-2xl bg-red-500/20 border-2 border-red-500/50 text-red-300 text-sm font-black flex items-center gap-3 shadow-[0_0_20px_rgba(239,68,68,0.2)] animate-fade-in">
                 <AlertCircle className="w-6 h-6 shrink-0" />
                 <span>{profileErrorMsg}</span>
               </div>
@@ -745,6 +752,20 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                     </div>
                   </div>
 
+                  {profileErrorMsg && (
+                    <div role="alert" aria-live="assertive" className="p-4 rounded-2xl bg-red-500/20 border border-red-500/50 text-red-300 text-sm font-black flex items-center gap-3">
+                      <AlertCircle className="w-5 h-5 shrink-0" />
+                      <span>{profileErrorMsg}</span>
+                    </div>
+                  )}
+
+                  {profileSuccessMsg && (
+                    <div role="status" aria-live="polite" className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-sm font-black flex items-center gap-3">
+                      <CheckCircle2 className="w-5 h-5 shrink-0" />
+                      <span>{profileSuccessMsg}</span>
+                    </div>
+                  )}
+
                   <div className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-8 border-t border-zinc-800">
                     <button
                       type="button"
@@ -755,7 +776,6 @@ export const AccountAuth: React.FC<AccountAuthProps> = ({ onNavigate, initialMod
                     </button>
                     <button
                       type="submit"
-                      onClick={(e) => handleSaveProfile(e)}
                       disabled={isSavingProfile}
                       className="w-full sm:w-auto px-10 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-all shadow-lg shadow-blue-500/30 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed touch-manipulation cursor-pointer"
                     >

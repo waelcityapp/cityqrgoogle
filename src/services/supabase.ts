@@ -27,7 +27,13 @@ export function getSupabaseClient() {
     return null;
   }
   if (!supabaseClient) {
-    supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
   }
   return supabaseClient;
 }
@@ -881,8 +887,8 @@ export async function signInWithSupabase(
     };
   }
 
-  // Preserve super admin role for waelvts@gmail.com
-  if (foundProfile && foundProfile.email.toLowerCase() === 'waelvts@gmail.com') {
+  // Roles are database-authoritative; never elevate privileges from an email address.
+  if (foundProfile?.role === 'admin' && foundProfile.subRole === 'super_admin') {
     foundProfile.role = 'admin';
     foundProfile.subRole = 'super_admin';
     foundProfile.subRoleTitle = 'المدير المباشر والأدمن الرئيسي (Super Admin)';
@@ -916,7 +922,7 @@ export async function signInWithGoogle(): Promise<{ user?: UserProfile; error?: 
     // Demo / Offline local simulation for Google Login when Supabase env variables are empty
     const googleUser: UserProfile = {
       id: 'google-user-' + Date.now(),
-      email: pendingSignup?.email || 'waelvts@gmail.com',
+      email: pendingSignup?.email || 'google.user@cityqr.local',
       fullName: pendingSignup?.fullName || 'مستخدم CityQR',
       role: pendingSignup?.role || 'merchant',
       subRole: pendingSignup?.subRole || 'partner_merchant',
@@ -952,7 +958,7 @@ export async function signInWithGoogle(): Promise<{ user?: UserProfile; error?: 
       if (error.message?.includes('Rate exceeded') || error.message?.includes('429')) {
         // Query live Supabase DB by email before falling back!
         let dbProfile: any = null;
-        const targetEmail = pendingSignup?.email || 'waelvts@gmail.com';
+        const targetEmail = pendingSignup?.email || 'google.user@cityqr.local';
         try {
           const { data } = await client.from('profiles').select('*').eq('email', targetEmail).maybeSingle();
           dbProfile = data;
@@ -1041,7 +1047,7 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
 
     let userProfile: UserProfile;
 
-    const isSuperAdminEmail = email.toLowerCase() === 'waelvts@gmail.com';
+    const isSuperAdminEmail = false;
 
     // Check if there was a pending Google registration with specific chosen role/subRole
     let pendingSignup: any = null;
@@ -1090,7 +1096,7 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
     const resolvedAvatar = profile?.avatar_url || meta.custom_avatar_url || meta.avatar_url || meta.picture || googleAvatar || '';
 
     if (profile) {
-      const finalRole = isSuperAdminEmail ? 'admin' : (pendingSignup?.role || profile.role || meta.role || 'user');
+      const finalRole = isSuperAdminEmail ? 'admin' : (profile.role || 'user');
       const finalSubRole = isSuperAdminEmail ? 'super_admin' : (pendingSignup?.subRole || profile.sub_role || meta.sub_role || 'citizen');
       const finalSubRoleTitle = isSuperAdminEmail ? 'المدير المباشر والأدمن الرئيسي (Super Admin)' : (pendingSignup?.subRoleTitle || profile.sub_role_title || meta.sub_role_title || '');
 
@@ -1118,7 +1124,7 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
     } else {
       // Auto-create profile in Supabase for Google OAuth user
       const newId = user.id || 'user-' + Date.now();
-      const defaultRole = isSuperAdminEmail ? 'admin' : (pendingSignup?.role || meta.role || 'user');
+      const defaultRole = isSuperAdminEmail ? 'admin' : 'user';
       const defaultSubRole = isSuperAdminEmail ? 'super_admin' : (pendingSignup?.subRole || meta.sub_role || 'citizen');
       const defaultSubRoleTitle = isSuperAdminEmail ? 'المدير المباشر والأدمن الرئيسي (Super Admin)' : (pendingSignup?.subRoleTitle || meta.sub_role_title || 'مستخدم منضم عبر جوجل');
 
@@ -1171,25 +1177,6 @@ export async function getCurrentUserFromSupabaseSession(providedSession?: any): 
           };
           await (client.from('profiles') as any).upsert(createCore, { onConflict: 'id' }).catch(() => null);
         }
-      } catch (e) {}
-    }
-
-    // Sync Google Auth user_metadata so Supabase Auth Console matches DB Profile 100%
-    if (client.auth && typeof client.auth.updateUser === 'function') {
-      try {
-        await client.auth.updateUser({
-          data: {
-            full_name: resolvedFullName,
-            name: resolvedFullName,
-            avatar_url: resolvedAvatar,
-            phone_number: userProfile.phoneNumber,
-            whatsapp_number: userProfile.whatsappNumber,
-            bio: userProfile.bio,
-            role: userProfile.role,
-            sub_role: userProfile.subRole,
-            sub_role_title: userProfile.subRoleTitle
-          }
-        });
       } catch (e) {}
     }
 
@@ -1264,30 +1251,21 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<Us
     throw new Error('لم يتم تكوين الاتصال بقاعدة بيانات Supabase / Supabase client not initialized');
   }
 
-  let userId = user.id || '';
-  try {
-    const { data: sessionData } = await client.auth.getSession();
-    if (sessionData?.session?.user?.id) {
-      userId = sessionData.session.user.id;
-    }
-  } catch (e) {}
+  const userId = user.id || '';
 
   const fullFields = {
     full_name: user.fullName || '',
-    role: user.role || 'user',
-    sub_role: user.subRole || '',
-    sub_role_title: user.subRoleTitle || '',
     avatar_url: user.avatarUrl || '',
     phone_number: user.phoneNumber || '',
     updated_at: new Date().toISOString()
   };
 
   let isSavedInDB = false;
-  let lastError: any = null;
+  let lastError: any = { message: 'No profile record was updated. Please sign in again and retry.' };
 
   const updateOperation = async () => {
     // 1. Update Auth User Metadata (syncs name to Supabase Auth provider)
-    if (typeof client.auth.updateUser === 'function') {
+    if (user.role === 'admin' && typeof client.auth.updateUser === 'function') {
       try {
         await client.auth.updateUser({
           data: {
@@ -1298,10 +1276,7 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<Us
             custom_avatar_url: user.avatarUrl || '',
             phone_number: user.phoneNumber || '',
             whatsapp_number: user.whatsappNumber || user.phoneNumber || '',
-            bio: user.bio || '',
-            role: user.role || 'user',
-            sub_role: user.subRole || '',
-            sub_role_title: user.subRoleTitle || ''
+            bio: user.bio || ''
           }
         });
       } catch (e) {
@@ -1324,7 +1299,7 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<Us
       const { error, data } = await client.from('profiles').update(fullFields).eq('email', user.email).select('*');
       if (!error && data && data.length > 0) {
         isSavedInDB = true;
-      } else if (error && !lastError) {
+      } else if (error) {
         lastError = error;
       }
     }
@@ -1339,7 +1314,7 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<Us
       const { error, data } = await client.from('profiles').upsert(upsertRecord, { onConflict: 'id' }).select('*');
       if (!error && data && data.length > 0) {
         isSavedInDB = true;
-      } else if (error && !lastError) {
+      } else if (error) {
         lastError = error;
       }
     }
@@ -1351,7 +1326,7 @@ export async function updateUserProfileInSupabase(user: UserProfile): Promise<Us
     new Promise((_, reject) => setTimeout(() => reject(new Error('انتهت مهلة الاتصال بقاعدة البيانات السحابية (Connection Timeout 6s). يرجى التأكد من الإنترنت وإعادة المحاولة.')), 6000))
   ]);
 
-  if (!isSavedInDB && lastError) {
+  if (!isSavedInDB) {
     throw new Error(`عفواً، تعذر الحفظ في قاعدة بيانات Supabase: ${lastError.message || 'خطأ في الاستعلام'}`);
   }
 
