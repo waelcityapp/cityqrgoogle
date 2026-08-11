@@ -590,7 +590,7 @@ function CityQRAppContent() {
                     <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-black" />
                   </div>
                   <span className="text-xs font-black text-black dark:text-white max-w-[80px] truncate sm:hidden">
-                    {currentUser.fullName?.split(' ')[0] || (currentUser.email ? currentUser.email.split('@')[0] : (language === 'ar' ? 'مستخدم' : 'User'))}
+                    {currentUser.fullName?.split(' ')[0] || currentUser.email.split('@')[0]}
                   </span>
                 </button>
               ) : (
@@ -751,7 +751,7 @@ function CityQRAppContent() {
                   </div>
                   <div className="text-right flex flex-col items-start leading-none gap-0.5">
                     <span className="text-xs font-black text-black dark:text-white max-w-[100px] sm:max-w-[130px] truncate">
-                      {currentUser.fullName || (currentUser.email ? currentUser.email.split('@')[0] : (language === 'ar' ? 'مستخدم' : 'User'))}
+                      {currentUser.fullName || currentUser.email.split('@')[0]}
                     </span>
                     <span className="text-[9px] font-extrabold text-[#D4AF37] font-mono">
                       {currentUser.role === 'merchant' || currentUser.role === 'admin'
